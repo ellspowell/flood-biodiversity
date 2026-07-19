@@ -16,7 +16,7 @@ This project aims to answer the research question: do the Environment Agency’s
 
 (flowchart)
 ## Data Sources
-All data used in this project is freely available online for use within its licensing terms. The [Data Sources](/Data Sources.md) file contains a list of all sources.
+All data used in this project is freely available online for use within its licensing terms. The [Data Sources](Data Sources.md) file contains a list of all sources.
 ## Notebook Guide
 This project consists of a pipeline generated using the targets package in R and several R Markdown files looking at the results. The descriptions below briefly describe the notebook contents.
 ### 01 - [Pipeline Setup](link) 
