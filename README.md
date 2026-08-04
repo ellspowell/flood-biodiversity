@@ -21,15 +21,18 @@ All data used in this project is freely available online for use within its lice
 This project consists of a pipeline generated using the targets package in R and several R Markdown files looking at the results. The descriptions below briefly describe the notebook contents.
 ### 01 - [Pipeline Setup](Notebooks/01_Pipeline.pdf) 
 How to access and run the pipeline, as well as notes on its generation and outputs.
-### 02 - [Exploring Diversity Indices](link)
-Generation and comparison of three different diversity indices: Shannon, Simpson, and Richness. Baseline models created using negative binomial distribution for richness, and beta regression with response transformation for Simpson. 
-### 03 - [Random Forest](link)
-
-### 04 - [eXtreme Gradient Boosting](link)
-
-### 05 - [SHapley Additive exPlanations](link)
-
-### 06 - [Descriptive Graphics](link)
+### 02 - [Exploring Diversity Indices](Notebooks/02_Diversity_Indices.pdf)
+Generation and comparison of two different diversity indices: Richness and Simpson. Baseline models created using negative binomial distribution for richness, and beta regression with response transformation for Simpson. 
+### 03 - [Random Forest Regression](Notebooks/03_Random_Forest_Regression.pdf)
+Regression Random Forest models using richness and Simpson.
+### 04 - [Random Forest Classification](Notebooks/04_Random_Forest_Classification.pdf)
+Random Forest models for richness and Simpson where diversity is classified as "high" or "low".
+### 05 - [Random Forest Classification without Sampling Effort](Notebooks/05_Random_Forest_NoDays.pdf)
+Random Forest models for richness and Simpson where diversity is classified as "high" or "low" and sampling effort is removed.
+### 06 - [eXtreme Gradient Boosting](Notebooks/06_eXtreme_Gradient_Boosting.pdf)
+XGBoost models for richness and Simpson.
+### 07 - [SHapley Additive exPlanations](Notebooks/07_sHapley_Additive_exPlanations.pdf)
+Notebook using SHAP to interpret machine learning outputs.
 
 ## Conclusions
 
