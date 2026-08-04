@@ -19,7 +19,7 @@ This project aims to answer the research question: do the Environment Agency’s
 All data used in this project is freely available online for use within its licensing terms. The [Data Sources](./Data_Sources.md) file contains a list of all sources.
 ## Notebook Guide
 This project consists of a pipeline generated using the targets package in R and several R Markdown files looking at the results. The descriptions below briefly describe the notebook contents.
-### 01 - [Pipeline Setup](link) 
+### 01 - [Pipeline Setup](Notebooks/01_Pipeline.pdf) 
 How to access and run the pipeline, as well as notes on its generation and outputs.
 ### 02 - [Exploring Diversity Indices](link)
 Generation and comparison of three different diversity indices: Shannon, Simpson, and Richness. Baseline models created using negative binomial distribution for richness, and beta regression with response transformation for Simpson. 
