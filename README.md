@@ -14,7 +14,9 @@ This project aims to answer the research question: do the Environment Agency’s
 - Use explainable AI methods on the models to make the model output interpretable.
 - Compare the models in their ability to predict biodiversity, performance, and interpretation.
 
-(flowchart)
+## Project Flowchart
+<img width="3780" height="2076" alt="Project Workflow" src="https://github.com/user-attachments/assets/8a95ef30-72c6-4ae2-ad84-9ef10862dda7" />
+
 ## Data Sources
 All data used in this project is freely available online for use within its licensing terms. The [Data Sources](./Data_Sources.md) file contains a list of all sources.
 ## Notebook Guide
