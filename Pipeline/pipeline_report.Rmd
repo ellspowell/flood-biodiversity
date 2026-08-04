@@ -1,0 +1,176 @@
+---
+title: "pipeline_report"
+author: "EP"
+date: "2026-08-04"
+output: pdf_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(targets)
+library(dplyr)
+library(tidyr)
+library(sf)
+library(ggplot2)
+library(patchwork)
+library(knitr)
+```
+
+```{r}
+tar_load(grid_model_all)
+tar_load(richness_models)
+tar_load(simpson_models)
+```
+
+```{r}
+# Build one ggplot per city &and wrap them into a single image with patchwork.
+make_city_maps <- function(data, fill_var, fill_label, ncol = 3) {
+  cities <- sort(unique(data$city))
+  plots <- lapply(cities, function(cty) {
+    ggplot(dplyr::filter(data, city == cty)) +
+      geom_sf(aes(fill = .data[[fill_var]]), colour = NA) +
+      scale_fill_viridis_c(name = fill_label, na.value = "grey90") +
+      labs(title = cty) +
+      theme_minimal() +
+      theme(
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        plot.title = element_text(size = 10, face = "bold"))})
+  patchwork::wrap_plots(plots, ncol = ncol)}
+```
+
+# Overview
+
+```{r}
+grid_model_all %>%
+  sf::st_drop_geometry() %>%
+  dplyr::group_by(city) %>%
+  dplyr::summarise(
+    n_cells         = dplyr::n(),
+    mean_richness   = mean(sp_richness, na.rm = TRUE),
+    mean_shannon    = mean(shannon, na.rm = TRUE),
+    mean_simpson    = mean(simpson, na.rm = TRUE),
+    total_records   = sum(n_records, na.rm = TRUE),
+    total_survey_days = sum(n_days, na.rm = TRUE),
+    .groups = "drop") %>%
+  knitr::kable(digits = 2, caption = "Summary of diversity and recording effort by city")
+```
+
+# Spatial patterns
+
+## Species richness
+
+```{r}
+make_city_maps(grid_model_all, "sp_richness", "Richness")
+```
+
+## Simpson diversity
+
+```{r}
+make_city_maps(grid_model_all, "simpson", "Simpson")
+```
+
+# Predictor summary
+
+```{r}
+grid_model_all %>%
+  sf::st_drop_geometry() %>%
+  dplyr::group_by(city) %>%
+  dplyr::summarise(
+    dplyr::across(
+      c(dtm_elev, avg_imperv, avg_area_ha, treeht),
+      ~ mean(.x, na.rm = TRUE)), .groups = "drop") %>%
+  knitr::kable(digits = 2, caption = "Mean predictor values by city (terrain, imperviousness, forest, tree height)")
+```
+
+```{r }
+grid_model_all %>%
+  sf::st_drop_geometry() %>%
+  dplyr::group_by(city) %>%
+  dplyr::summarise(
+    dplyr::across(
+      c(weighted_precip, weighted_temp, dist_to_river, pct_greenspace),
+      ~ mean(.x, na.rm = TRUE)), .groups = "drop") %>%
+  knitr::kable(digits = 2, caption = "Mean predictor values by city (climate, river distance, greenspace)")
+```
+
+```{r}
+grid_model_all %>%
+  sf::st_drop_geometry() %>%
+  dplyr::count(city, rofsw_risk) %>%
+  tidyr::pivot_wider(names_from = city, values_from = n, values_fill = 0) %>%
+  knitr::kable(caption = "Cell counts by surface water flood risk (RoFSW) category and city")
+```
+
+```{r}
+grid_model_all %>%
+  sf::st_drop_geometry() %>%
+  dplyr::count(city, rofrs_risk) %>%
+  tidyr::pivot_wider(names_from = city, values_from = n, values_fill = 0) %>%
+  knitr::kable(caption = "Cell counts by river and sea flood risk (RoFRS) category and city")
+```
+
+# Models
+
+```{r}
+# Manual likelihood ratio test: works for any models supporting logLik()/df.residual()
+lr_test <- function(null_model, full_model) {
+  ll_null <- as.numeric(logLik(null_model))
+  ll_full <- as.numeric(logLik(full_model))
+  df_null <- attr(logLik(null_model), "df")
+  df_full <- attr(logLik(full_model), "df")
+
+  stat <- 2 * (ll_full - ll_null)
+  df   <- df_full - df_null
+  p    <- pchisq(stat, df = df, lower.tail = FALSE)
+
+  tibble::tibble(
+    logLik_null = ll_null,
+    logLik_full = ll_full,
+    AIC_null    = AIC(null_model),
+    AIC_full    = AIC(full_model),
+    chisq       = stat,
+    df          = df,
+    p_value     = p)}
+```
+
+## Species richness (negative binomial GLM)
+
+```{r}
+summary(richness_models$full)$coefficients %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("term") %>%
+  knitr::kable(digits = 3, caption = "Full richness model coefficients")
+```
+
+```{r}
+lr_test(richness_models$null, richness_models$full) %>%
+  knitr::kable(digits = 3, caption = "Richness: Null vs. Full models")
+```
+
+## Simpson diversity (beta regression)
+
+```{r}
+summary(simpson_models$full)$coefficients$mean %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("term") %>%
+  knitr::kable(digits = 3, caption = "Full Simpson model coefficients")
+```
+
+```{r}
+lr_test(simpson_models$null, simpson_models$full) %>%
+  knitr::kable(digits = 3, caption = "Simpson: Null vs. Full Models")
+```
+
+# Recording effort
+
+```{r}
+grid_model_all %>%
+  sf::st_drop_geometry() %>%
+  ggplot(aes(x = n_days, y = sp_richness, colour = city)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "loess", se = FALSE) +
+  labs(x = "Survey days per cell", y = "Species richness", title = "Sampling Effort by City") +
+  theme_minimal()
+```
