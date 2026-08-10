@@ -13,13 +13,6 @@ knitr::opts_chunk$set(echo = TRUE)
 
 List of references for the packages used in this pipeline.
 
-targets
-"readr", "sf", "dplyr", "terra", "tidyr", "tidyverse", "vegan", 
-"ggplot2", "MASS", "betareg", "ranger"
-
-Author surname, initials or Organisation (Year of publication or last update) Title of Website. 
-Available from: URL [Accessed DD Month YYYY]. 
-
 - Landau, W. The Comprehensive R Archive Network (2026) targets: Dynamic Function-Oriented 'Make'-Like Declarative Pipelines. Available from: https://cran.r-project.org/web/packages/targets/index.html [Accessed 04/08/2026]
 - Wickham, H., Hester, J., Francois, R., Bryan, J. et al. The Comprehensive R Archive Network (2026) readr: Read Rectangular Text Data. Available from: https://cran.r-project.org/web/packages/readr/index.html [Accessed 04/08/2026]
 - Pebesma, E., Bivand, R., Racine, E., Sumner, M. et al. The Comprehensive R Archive Network (2026) sf: Simple Features for R. Available from: https://cran.r-project.org/web/packages/sf/index.html [Accessed 04/08/2026]
