@@ -1,0 +1,102 @@
+---
+title: "Data Prep"
+author: "EP"
+date: "2026-07-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Data preparation for pipeline
+```{r}
+# Load Libraries
+library(dplyr)
+library(sf)
+```
+### NBN Atlas Species Data
+```{r}
+files <- list(
+  exe   = "../Data/nbn_species_data/nbn_species_exe.csv",
+  notts = "../Data/nbn_species_data/nbn_species_notts.csv",
+  brs   = "../Data/nbn_species_data/nbn_species_brs.csv",
+  ne    = "../Data/nbn_species_data/nbn_species_ne.csv") 
+
+species_data <- function(path) {
+  read.csv(path) %>%
+    filter(Year >= 2000) %>%
+    filter(Kingdom == "Animalia") %>%
+    filter(!Basis.of.Record %in% c("PRESERVED_SPECIMEN", "MATERIAL_SAMPLE")) %>%
+    filter(Occurrence.status == "PRESENT") %>%
+    filter(Phylum %in% c("Arthropoda", "Chordata")) %>%
+    select(NBN.Atlas.record.ID, Occurrence.ID, Species.ID..TVK., Scientific.name,
+           Common.name, Phylum, Class, Event.Date, Day, Month, Year,
+           Latitude..WGS84., Longitude..WGS84., Basis.of.Record, Data.provider, Individual.count)}
+
+species_list <- lapply(files, species_data)
+
+species_all <- bind_rows(species_list, .id = "site") %>%
+  distinct(NBN.Atlas.record.ID, .keep_all = TRUE)
+
+write.csv(species_all, "../Data/Species_Data.csv", row.names = FALSE)
+```
+
+### Risk of flooding from rivers and seas
+```{r}
+rofrs_files <- list(
+  exe   = "../Data/Risk of Flooding from Rivers and Sea Exe/rofrs_4bandPolygon.shp",
+  notts = "../Data/Risk of Flooding from Rivers and Sea Notts/rofrs_4bandPolygon.shp",
+  brs   = "../Data/Risk of Flooding from Rivers and Sea Brs/rofrs_4bandPolygon.shp",
+  ne    = "../Data/Risk of Flooding from Rivers and Sea NE/rofrs_4bandPolygon.shp")
+
+rofrs_data <- function(path) {
+  st_read(path, quiet = TRUE) %>%
+    select(objectid, risk_band, geometry)}
+
+rofrs_list <- lapply(rofrs_files, rofrs_data)
+
+rofrs_all <- bind_rows(rofrs_list, .id = "site") %>%
+  distinct(objectid, .keep_all = TRUE)
+
+st_write(rofrs_all, "../Data/rofrs_data/rofrs_data_all.shp", delete_layer = TRUE)
+
+```
+
+### Risk of flooding from Surface Water
+```{r}
+rofsw_files <- list(
+  exe = "../Data/Risk of Flooding from Surface Water Exe/rofswPolygon.shp",
+  notts = "../Data/Risk of Flooding from Surface Water Notts/rofswPolygon.shp",
+  brs = "../Data/Risk of Flooding from Surface Water Brs/rofswPolygon.shp",
+  ne = "../Data/Risk of Flooding from Surface Water NE/rofswPolygon.shp")
+
+rofsw_data <- function(path){
+  st_read(path, quiet = TRUE) %>%
+    select(risk_band, geometry)}
+
+rofsw_list <- lapply(rofsw_files, rofsw_data)
+
+rofsw_all <- bind_rows(rofsw_list, .id = "site")
+
+st_write(rofsw_all, "../Data/rofsw_data/rofsw_data.shp", delete_layer = TRUE)
+```
+
+### Trees outside of Woodland Areas
+```{r}
+tree_files <- list(
+  exe = "../Data/National Trees Outside Woodland Exe/FR_TOW_V1_South_WestPolygon.shp",
+  notts = "../Data/National Trees Outside Woodland Notts/FR_TOW_V1_East_MidlandsPolygon.shp",
+  brs = "../Data/National Trees Outside Woodland Brs/FR_TOW_V1_South_WestPolygon.shp",
+  ne = "../Data/National Trees Outside Woodland NE/FR_TOW_V1_North_EastPolygon.shp")
+
+trees_data <- function(path){
+  st_read(path, quiet = TRUE)}
+
+trees_list <- lapply(tree_files, trees_data)
+
+trees_all <- bind_rows(trees_list, .id = "site")
+st_write(trees_all, "../Data/trees_outside_woodland_data/trees.shp", delete_layer = TRUE)
+```
+
+NB: ne (Newcastle) includes the city Gateshead but data was downloaded together due to their geographical proximity.
