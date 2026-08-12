@@ -1,6 +1,6 @@
 # How to run the pipeline
 
-This guide outlines how to set up and run the pipeline. For information on how the pipeline is set up visit this [notebook](../Notebooks/01_Pipeline.pdf).
+This guide outlines how to set up and run the pipeline. For information on how the pipeline is built visit this [notebook](../Notebooks/01_Pipeline.pdf).
 
 ## Step One
 Download the following files:
