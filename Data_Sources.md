@@ -2,7 +2,6 @@
 | Name | Description | Available From | Access Date |
 | ------------ | -------------------------------------- | ------------------------ | ------------ |
 | NBN_Atlas_Data | Species Occurrence Data | [NBN Atlas](https://nbnatlas.org/) | 24/03/2026 |
-| GBIF | Species Occurrence Data | [GBIF](https://www.gbif.org/occurrence/search) | 20/05/2026 |
 | OS UK Borders | Administrative boundary details | [OS Boundary-Line](https://osdatahub.os.uk/data/downloads/open/BoundaryLine) | 01/07/26 |
 | ROFRS | Risk of Flooding From Rivers and Seas | [DEFRA ROFRS](https://environment.data.gov.uk/dataset/96ab4342-82c1-4095-87f1-0082e8d84ef1) | 17/02/2026 |
 | ROFSW | Risk of Flooding From Surface Water | [DEFRA ROFSW](https://environment.data.gov.uk/dataset/b5aaa28d-6eb9-460e-8d6f-43caa71fbe0e) | 19/05/2026 |
