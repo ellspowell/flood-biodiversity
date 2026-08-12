@@ -25,6 +25,27 @@ CSCT_Pipeline/
 ### Step Two
 Download the raw data. 
 
+```
+CSCT_Pipeline/
+├── _targets.R
+├── pipeline_report.Rmd
+└── R/
+    ├── Grid.R
+    ├── Species_Diversity.R
+    └── Baseline_Model.R
+└── Data/
+    ├── 
+    ├── 
+    ├── 
+    ├──
+    ├── 
+    ├── 
+    ├── 
+    ├──
+    ├── 
+    ├── 
+    └── Baseline_Model.R
+```
 
 ### Step Three
 Install the required packages, using the code below:
