@@ -25,41 +25,42 @@ CSCT_Pipeline/
 
 ## Step Two
 Download the data. 
-**NBN Atlas Species Data**
+
+### NBN Atlas Species Data
 Following this [link](https://nbnatlas.org/), you can download species occurrence data through a number of routes. The easiest way is to go to "Locations" -> "Explore by predefined area" -> "Bristol" -> "View records". At this stage you can filter for record type, species type, year, and many others. Some searches may be too large, but you can filter and download in chunks. Then use the [Data Prep](Data_Prep.Rmd) markdown file to filter and join the datasets. 
 
-**OS UK Borders**
+### OS UK Borders
 Follow this [link](https://osdatahub.os.uk/data/downloads/open/BoundaryLine) to download the ESRI Shapefile.
 
-**OS Greenspace**
+### OS Greenspace
 Follow this [link](https://osdatahub.os.uk/data/downloads/open/OpenGreenspace) to download the ESRI Shapefile.
 
-**OS GB Rivers**
+### OS GB Rivers
 Follow this [link](https://osdatahub.os.uk/data/downloads/open/OpenRivers) to download the ESRI Shapefile.
 
-**Risk of Flooding from Rivers and Seas**
+### Risk of Flooding from Rivers and Seas
 Follow this [link](https://environment.data.gov.uk/dataset/96ab4342-82c1-4095-87f1-0082e8d84ef1) and select "Download data by area of interest and format". Draw a polygon for your selected area, select "rofrs_4band", and download in an ESRI Shapefile format. Repeat for all areas of interest. Then use the [Data Prep](Data_Prep.Rmd) markdown file to join the datasets. 
 
-**Risk of Flooding from Surface Water**
+### Risk of Flooding from Surface Water
 Follow this [link](https://environment.data.gov.uk/dataset/b5aaa28d-6eb9-460e-8d6f-43caa71fbe0e) and select "Download data by area of interest and format". Draw a polygon for your selected area, select "rofrs_4band", and download in an ESRI Shapefile format. Repeat for all areas of interest. Then use the [Data Prep](Data_Prep.Rmd) markdown file to join the datasets. 
 
-**National LIDAR Programme**
+### National LIDAR Programme
 Follow this [link](https://environment.data.gov.uk/dataset/13787b9a-26a4-4775-8523-806d13af58fc) then click on "download the survey data".
 Draw a polygon around your city of interest and click "get available tiles". Select "LIDAR Tiles DTM" for 2017 with a 1m resolution. Available tiles will then be listed, download all. A full list of the tiles downloaded and used in this project is available [here](DTM_Tiles_List).
 
-**National Forest Inventory**
+### National Forest Inventory
 Follow this [link](https://data-forestry.opendata.arcgis.com/datasets/0682c7cb180e4abe9dee7e4d5cc35784_0/explore?location=52.433465%2C-2.554283%2C4.00) to download the ESRI Shapefile.
 
-**National Trees Outside Woodlands**
+### National Trees Outside Woodlands
 Follow this [link] to download the data. Draw a polygon around the area of interest and set the layers to the appropriate location (i.e. FR_TOW_V1_South_West for Bristol or Exeter). Download as an ESRI Shapefile and repeat for all areas of interest. Then use the [Data Prep](Data_Prep.Rmd) markdown file to join the datasets. 
 
-**Impervious Density**
+### Impervious Density
 Follow this [link](https://land.copernicus.eu/en/products/high-resolution-layer-imperviousness/imperviousness-density-2024#download) to download the data. You will need to create an account before you can download. Follow the steps on the website and use UK as the area selection.
 
-**Annual Temperature Observations**
+### Annual Temperature Observations
 Follow this [link](https://climatedataportal.metoffice.gov.uk/datasets/55e3e3d6178b4739b5ab9f7fc7a6c539_2/explore?location=51.457102%2C-2.267964%2C8) to download the ESRI Shapefile.
 
-**Annual Precipitation Observations**
+### Annual Precipitation Observations
 Follow this [link](https://climatedataportal.metoffice.gov.uk/datasets/f6ed302049894ee8b230215a3efa9c19_0/explore?location=51.506706%2C-2.304219%2C9) to download the ESRI Shapefile.
 
 
