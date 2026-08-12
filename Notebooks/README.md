@@ -1,3 +1,3 @@
 # Notebooks
 
-All the notebooks described below are available as PDFs or as an [RMD](R Markdowns/readme.md) which can be run using this dataset.
+All the notebooks described below are available as PDFs or as an [RMD](RMDs) which can be run using this dataset.
