@@ -12,6 +12,7 @@ Download the following files:
 
 Save these to your device with the following format:
 
+```
 CSCT_Pipeline/
 ├── _targets.R
 ├── pipeline_report.Rmd
@@ -19,6 +20,7 @@ CSCT_Pipeline/
     ├── Grid.R
     ├── Species_Diversity.R
     └── Baseline_Model.R
+```
 
 ### Step Two
 Download the raw data. 
