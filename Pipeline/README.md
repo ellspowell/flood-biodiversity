@@ -65,7 +65,7 @@ Follow this [link](https://climatedataportal.metoffice.gov.uk/datasets/f6ed30204
 
 
 ## Step Three
-Prepare the following data sets using this [RMD](Data_Prep.Rmd):
+As noted earlier, prepare the following data sets using this [RMD](Data_Prep.Rmd):
 
 - NBN Atlas Species Data
 - ROFRS
