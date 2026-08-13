@@ -9,8 +9,7 @@ build_dtm <- function(zip_paths, boundary, city_label,
   if (!dir.exists(exdir)) dir.create(exdir, recursive = TRUE)
   for (z in zip_paths) {
     if (!file.exists(file.path(exdir, basename(z)))) {
-      unzip(z, exdir = exdir, overwrite = FALSE)
-    }
+      unzip(z, exdir = exdir, overwrite = FALSE)}
   }
   dtm <- vrt(list.files(exdir, pattern = "\\.tif$", full.names = TRUE))
   dtm <- crop(dtm, vect(boundary))
@@ -38,34 +37,29 @@ add_dominant_risk <- function(grid_sf, hazard_sf, risk_col, levels) {
   
   dom <- st_intersection(
     grid_sf %>% dplyr::select(cell_id),
-    hazard_sf %>% dplyr::select(risk_band)
-  ) %>%
+    hazard_sf %>% dplyr::select(risk_band)) %>%
     dplyr::mutate(overlap_area = st_area(.)) %>%
     st_drop_geometry() %>%
     dplyr::mutate(risk_band = factor(risk_band, levels = levels, ordered = FALSE)) %>%
     dplyr::group_by(cell_id, risk_band) %>%
     dplyr::summarise(
       overlap_area = sum(overlap_area),
-      .groups = "drop"
-    ) %>%
+      .groups = "drop") %>%
     dplyr::group_by(cell_id) %>%
     dplyr::arrange(dplyr::desc(overlap_area), dplyr::desc(risk_band), .by_group = TRUE) %>%
     dplyr::slice(1) %>%
     dplyr::ungroup() %>%
     dplyr::select(cell_id, !!risk_col := risk_band)
-  
   dplyr::left_join(grid_sf, dom, by = "cell_id")
 }
 
 add_flood_risk <- function(grid_sf, rofsw, rofrs) {
   grid_sf <- add_dominant_risk(
     grid_sf, rofsw, "rofsw_risk",
-    levels = c("Low", "Medium", "High")
-  )
+    levels = c("Low", "Medium", "High"))
   add_dominant_risk(
     grid_sf, rofrs, "rofrs_risk",
-    levels = c("Very low", "Low", "Medium", "High")
-  )
+    levels = c("Very low", "Low", "Medium", "High"))
 }
 
 load_within_boundary <- function(path, crs, boundary) {
@@ -89,7 +83,6 @@ add_trees <- function(grid, trees) {
     group_by(cell_id) %>%
     summarise(treeht = mean(meanht, na.rm = TRUE),tree_type = paste(unique(woodland_t[!is.na(woodland_t)]), collapse = ", ")) %>%
     mutate(treeht = ifelse(is.nan(treeht), 0, treeht),tree_type = ifelse(tree_type == "", NA, tree_type))
-  
   grid %>% left_join(tree_summary, by = "cell_id")
 }
 
@@ -156,16 +149,14 @@ add_greenspace <- function(grid, greenspace) {
     group_by(cell_id) %>%
     summarise(
       greenspace_area = sum(overlap_area, na.rm = TRUE),
-      greenspace_types = paste(unique(`function.`[!is.na(`function.`)]), collapse = ", ")
-    )
+      greenspace_types = paste(unique(`function.`[!is.na(`function.`)]), collapse = ", "))
   
   grid %>%
     left_join(greenspace_summary, by = "cell_id") %>%
     mutate(
       cell_area = as.numeric(st_area(geometry)),
       pct_greenspace = ifelse(is.na(greenspace_area), 0, greenspace_area / cell_area),
-      greenspace_types = ifelse(greenspace_types == "" | is.na(greenspace_types), NA, greenspace_types)
-    ) %>%
+      greenspace_types = ifelse(greenspace_types == "" | is.na(greenspace_types), NA, greenspace_types)) %>%
     dplyr::select(-greenspace_area, -cell_area)
 }
 
