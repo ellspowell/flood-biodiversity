@@ -63,8 +63,7 @@ calculate_effort <- function(records) {
       n_records   = dplyr::n(),
       n_days      = dplyr::n_distinct(Event.Date),
       n_providers = dplyr::n_distinct(Data.provider),
-      .groups = "drop"
-    )
+      .groups = "drop")
 }
 
 add_diversity <- function(grid, diversity_results, richness) {
