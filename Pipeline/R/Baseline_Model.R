@@ -12,8 +12,7 @@ fit_richness <- function(grid_model){
                     weighted_temp + 
                     dist_to_river +
                     pct_greenspace,
-                  data = grid_model)
-  )
+                  data = grid_model))
 }
 
 fit_shannon <- function(grid_model){
@@ -31,8 +30,7 @@ fit_shannon <- function(grid_model){
                  dist_to_river +
                  pct_greenspace,
                family = Gamma(link = "log"),
-               data = grid_model)
-    )
+               data = grid_model))
 }
 
 fit_simpson <- function(grid_model){
@@ -53,6 +51,5 @@ fit_simpson <- function(grid_model){
                      weighted_temp + 
                      dist_to_river +
                      pct_greenspace,
-                   data = grid_model)
-  )
+                   data = grid_model))
 }
