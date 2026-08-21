@@ -1,5 +1,6 @@
 library(targets)
 library(tarchetypes)
+setwd("~/CSCT_Pipeline")
 
 tar_option_set(packages = c("readr", "sf", "dplyr", "terra", "tidyr", "tidyverse", "vegan", "ggplot2", "MASS", "betareg", "ranger"))
 tar_source()
