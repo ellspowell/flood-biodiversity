@@ -1,135 +1,236 @@
-# How to run the pipeline
+# Pipeline Guide
 
-This guide outlines how to set up and run the pipeline. For information on how the pipeline is built visit this [notebook](../Notebooks/01_Pipeline.pdf).
+This directory contains the data-processing and modelling pipeline for the flood and biodiversity analysis.
 
-## Step One
-Download the following files:
+There are two ways to reproduce this project:
 
-- [_targets.R](_targets.R)
-- [R/Grid.R](R/Grid.R)
-- [R/Species_Diversity.R](R/Species_Diversity.R)
-- [R/Baseline_Model.R](R/Baseline_Model.R)
+1. Reproduce the statistical analysis using the pipeline generated datasets. Information on this can be found [here](../Notebooks/README.md).
+2. Rebuild the datasets from the original source data. This requires downloading large datasets and running the full `targets` pipeline.
 
-Save these to your device with the following format:
+Option one is recommended for users who want to reproduce the project results. For information on how the pipeline is built visit this [notebook](../Notebooks/01_Pipeline.pdf).
 
-```
-CSCT_Pipeline/
-├── _targets.R
-├── pipeline_report.Rmd
-└── R/
-    ├── Grid.R
-    ├── Species_Diversity.R
-    └── Baseline_Model.R
-└── Data/
-```
+# Rerunning the pipeline
 
-## Step Two
-Download the data. 
+## 1. Clone the repository
 
-### NBN Atlas Species Data
-Following this [link](https://nbnatlas.org/), you can download species occurrence data through a number of routes. The easiest way is to go to "Locations" -> "Explore by predefined area" -> "Bristol" -> "View records". At this stage you can filter for record type, species type, year, and many others. Some searches may be too large, but you can filter and download in chunks. Then use the [Data Prep](Data_Prep.Rmd) markdown file to filter and join the datasets. 
-
-### OS UK Borders
-Follow this [link](https://osdatahub.os.uk/data/downloads/open/BoundaryLine) to download the ESRI Shapefile.
-
-### OS Greenspace
-Follow this [link](https://osdatahub.os.uk/data/downloads/open/OpenGreenspace) to download the ESRI Shapefile.
-
-### OS GB Rivers
-Follow this [link](https://osdatahub.os.uk/data/downloads/open/OpenRivers) to download the ESRI Shapefile.
-
-### Risk of Flooding from Rivers and Seas
-Follow this [link](https://environment.data.gov.uk/dataset/96ab4342-82c1-4095-87f1-0082e8d84ef1) and select "Download data by area of interest and format". Draw a polygon for your selected area, select "rofrs_4band", and download in an ESRI Shapefile format. Repeat for all areas of interest. Then use the [Data Prep](Data_Prep.Rmd) markdown file to join the datasets. 
-
-### Risk of Flooding from Surface Water
-Follow this [link](https://environment.data.gov.uk/dataset/b5aaa28d-6eb9-460e-8d6f-43caa71fbe0e) and select "Download data by area of interest and format". Draw a polygon for your selected area, select "rofrs_4band", and download in an ESRI Shapefile format. Repeat for all areas of interest. Then use the [Data Prep](Data_Prep.Rmd) markdown file to join the datasets. 
-
-### National LIDAR Programme
-Follow this [link](https://environment.data.gov.uk/dataset/13787b9a-26a4-4775-8523-806d13af58fc) then click on "download the survey data".
-Draw a polygon around your city of interest and click "get available tiles". Select "LIDAR Tiles DTM" for 2017 with a 1m resolution. Available tiles will then be listed, download all. A full list of the tiles downloaded and used in this project is available [here](DTM_Tiles_List).
-
-### National Forest Inventory
-Follow this [link](https://data-forestry.opendata.arcgis.com/datasets/0682c7cb180e4abe9dee7e4d5cc35784_0/explore?location=52.433465%2C-2.554283%2C4.00) to download the ESRI Shapefile.
-
-### National Trees Outside Woodlands
-Follow this [link] to download the data. Draw a polygon around the area of interest and set the layers to the appropriate location (i.e. FR_TOW_V1_South_West for Bristol or Exeter). Download as an ESRI Shapefile and repeat for all areas of interest. Then use the [Data Prep](Data_Prep.Rmd) markdown file to join the datasets. 
-
-### Impervious Density
-Follow this [link](https://land.copernicus.eu/en/products/high-resolution-layer-imperviousness/imperviousness-density-2024#download) to download the data. You will need to create an account before you can download. Follow the steps on the website and use UK as the area selection.
-
-### Annual Temperature Observations
-Follow this [link](https://climatedataportal.metoffice.gov.uk/datasets/55e3e3d6178b4739b5ab9f7fc7a6c539_2/explore?location=51.457102%2C-2.267964%2C8) to download the ESRI Shapefile.
-
-### Annual Precipitation Observations
-Follow this [link](https://climatedataportal.metoffice.gov.uk/datasets/f6ed302049894ee8b230215a3efa9c19_0/explore?location=51.506706%2C-2.304219%2C9) to download the ESRI Shapefile.
-
-
-## Step Three
-As noted earlier, prepare the following data sets using this [RMD](Data_Prep.Rmd):
-
-- NBN Atlas Species Data
-- ROFRS
-- ROFSW
-- National Trees Outside Woodland
-
-Save these to the `CSCT_Pipeline/Data` Folder. Your files should now be saved in this format:
+Clone the repository rather than downloading individual R scripts:
 
 ```
-CSCT_Pipeline/
-├── _targets.R
-├── pipeline_report.Rmd
-└── R/
-    ├── Grid.R
-    ├── Species_Diversity.R
-    └── Baseline_Model.R
-└── Data/
-    ├── Annual_Precipitation_Observations_1991_2020
-    ├── Annual_Temperature_Observations_1991_2020
-    ├── Impervious_Density_UK_2024
-    ├── lidar
-    ├── National_Forest_Inventory_England_2023
-    ├── OS_Borders
-    ├── OS_greenspace
-    ├── OS_rivers_gb
-    ├── rofrs_data
-    ├── rofsw_data
-    ├── trees_outside_woodland_data
-    └── Species_Data
+git clone https::/github.com/ellspowell/flood-biodiversity.git
+cd flood-biodiversity/Pipeline
 ```
+Alternatively, the repository can be downloaded as a ZIP from GitHub.
 
-## Step Four
-Install the required packages, using the code below:
+## 2. Restore the R environment
+
+This project uses `renv` to record the R package versions used for the analysis. The project was developed used R 4.5.3. 
+From the `Pipeline` directory, start R and install `renv` if not already installed:
 
 ```r
-required_packages <- c("readr", "sf", "dplyr", "terra", "tidyr", "tidyverse", "vegan", "ggplot2", "MASS", "betareg", "ranger")
-
-new_packages <- required_packages[!(required_packages %in% installed.packages()[, "Package"])]
-
-if (length(new_packages) > 0) {install.packages(new_packages)}
+install.packages("renv")
 ```
 
-## Step Five
-1. Open the `_target.R` file.
-2. Run the first seven lines of code
-   ```r
-   library(targets)
-   library(tarchetypes)
-   setwd("~/CSCT_Pipeline")
+Then restore the project environment:
 
-   tar_option_set(packages = c("readr", "sf", "dplyr", "terra", "tidyr", "tidyverse", "vegan",    "ggplot2", "MASS", "betareg", "ranger"))
-   tar_source()
-   project_crs <- 27700
-   ```
-3. Run the command `tar_make()` in the console. On first run, this will run the entire pipeline. Subsequent runs will only run targets that have been changed and any targets downstream of this change.
+```r
+renv::restore()
+```
 
-NB: Running this pipeline can take a long time due to the large computational requirements of calculating the elevation and imperviousness of each grid square. As such, comments within the pipeline (in `_targets.R`) exist to help with commenting these out for a quicker proof of concept run. 
+This then installs the package versions recorded in `renv.lock`.
 
-## Changing Cities
+## 3. Download the data sources
 
-Cities of interest can be altered easily, so long as they fall within the UK, by changing city name in the `_targets.R` file:
+> **Note:** This requires substantial data downloads, storage, and computation. For this reason, the original source datasets are not included in this GitHub repository. 
+
+This pipeline expects data to be stored relative to the `Pipeline` directory under:
 
 ```
+Pipeline/
+├── _targets.R
+├── pipeline_report.Rmd
+├── renv.lock
+└── R/
+    ├── Grid.R
+    ├── Species_Diversity.R
+    └── Baseline_Model.R
+└── Data/
+```
+Do not change the working directory within `_targets.R` since all paths used by the pipeline are relative to the `Pipeline` directory.
+
+The datasets in this project are listed below. Further details on data sources can be found [here](../Data_Sources.md).
+
+### NBN Atlas Species Data
+Species occurrence data was obtained from the NBN Atlas. Data can be downloaded through **Locations -> Explore by predefined area -> [area] -> View records**. 
+
+Records can be filtered by variables such as record type, species group, and year. Large searches may need to be downloaded in multiple parts.
+
+The downloaded occurrence datasets were then processed and combined using [`Data_Prep.Rmd`](../Pipeline/Data_Prep.Rmd) to produce: 
+
+`Data/Species_Data.csv`
+
+Users downloading NBN Atlas data should observe the licences and attribution requirements associated with the downloaded records and datasets. 
+
+### OS UK Borders
+Download the ESRI Shapefile version of OS Boundary-Line from the OS Data hub. 
+
+The pipeline expects data to be stored under:
+
+`Data/OS_borders/`
+
+### OS Greenspace
+Download OS Open Greenspace from the OS Data Hub in ESRI Shapefile format.
+
+The pipeline expects:
+
+`Data/OS_greenspace/GB_GreenspaceSite.shp`
+
+### OS GB Rivers
+Download OS Open Rivers from the OS Data Hub in ESRI Shapefile format.
+
+The pipeline expects:
+
+`Data/OS_rivers_gb/data/WatercourseLink.shp`
+
+### Risk of Flooding from Rivers and Seas
+Download the Environment Agency Risk of Flooding from Rivers and Sea data for each study area in ESRI Shapefile format.
+
+The separate downloads are processed and combined using [`Data_Prep.Rmd`](../Pipeline/Data_Prep.Rmd).
+
+The pipeline expects the resulting dataset at:
+
+`Data/rofrs_data/rofrs_data_all.shp`
+
+### Risk of Flooding from Surface Water
+Download the Environment Agency Risk of Flooding from Surface Water data for each study area in ESRI Shapefile format.
+
+The separate downloads are processed and combined using [`Data_Prep.Rmd`](../Pipeline/Data_Prep.Rmd).
+
+The pipeline expects:
+
+`Data/rofsw_data/rofsw_data.shp`
+
+### National LIDAR Programme
+LiDAR Digital Terrain Model (DTM) data were downloaded from the Environment Agency National LiDAR Programme.
+
+For each study area:
+
+1. Select the area of interest.
+2. Select the available DTM tiles.
+3. Download the required tiles.
+4. Store the downloaded ZIP files under:
+
+`Data/lidar/`
+
+The pipeline automatically identifies ZIP files within this directory and constructs the elevation data required for each study area.
+
+### National Forest Inventory
+Download the National Forest Inventory for England in ESRI Shapefile format.
+
+The pipeline expects the data under:
+
+`Data/National_Forest_Inventory_England_2023/`
+
+### National Trees Outside Woodlands
+Download the appropriate Trees Outside Woodland layer for each study area.
+
+For example, the South West layer covers Bristol and Exeter.
+
+The separate datasets are processed and combined using [`Data_Prep.Rmd`](../Pipeline/Data_Prep.Rmd).
+
+The resulting dataset is expected under:
+
+`Data/trees_outside_woodland_data/`
+
+### Impervious Density
+Imperviousness Density data were obtained from the Copernicus Land Monitoring Service. A Copernicus account may be required to download the data.
+
+Select the United Kingdom as the area of interest and store the downloaded ZIP files under:
+
+`Data/Impervious_Density_UK_2024/`
+
+The pipeline automatically identifies the ZIP files and processes the required imperviousness data for each study area.
+
+### Annual Temperature Observations
+Annual temperature observations for 1991–2020 were obtained from the Met Office Climate Data Portal.
+
+Download the data in ESRI Shapefile format and store them under:
+
+`Data/Annual_Temperature_Observations_1991_2020/`
+
+### Annual Precipitation Observations
+Annual precipitation observations for 1991–2020 were obtained from the Met Office Climate Data Portal.
+
+Download the data in ESRI Shapefile format and store them under:
+
+`Data/Annual_Precipitation_Observations_1991_2020/`
+
+
+## 4. Data Preparation
+Some downloads require preprocessing before running the pipeline. Use [RMD](../Pipeline/Data_Prep.Rmd) to prepare:
+
+- NBN Atlas Species Data
+- Risk of Flooding from Rivers and Sease
+- Risk of Flooding from Surface Water
+- National Trees Outside Woodland
+
+After preparation, the expected data structure is:
+
+```
+Pipeline/
+├── _targets.R
+├── pipeline_report.Rmd
+├── Data_Prep.Rmd
+├── renv.lock
+├── .Rprofile
+├── renv/
+└── R/
+    ├── Grid.R
+    ├── Species_Diversity.R
+    └── Baseline_Model.R
+└── Data/
+    ├── Annual_Precipitation_Observations_1991_2020/
+    ├── Annual_Temperature_Observations_1991_2020/
+    ├── Impervious_Density_UK_2024/
+    ├── lidar/
+    ├── National_Forest_Inventory_England_2023/
+    ├── OS_Borders/
+    ├── OS_greenspace/
+    ├── OS_rivers_gb/
+    ├── rofrs_data/
+    ├── rofsw_data/
+    ├── trees_outside_woodland_data/
+    └── Species_Data.csv
+└── Notebooks/    
+```
+## 5. Run the pipeline
+
+From the `Pipeline` directory, start R and run:
+
+```r
+targets::tar_make()
+```
+
+There is no need to manually run individual lines from `_targets.R`. On the first complete run, `targets` builds the required analysis from the source data. On subsequent runs, `targets` identifies changes and rebuild affected targets and their downstream dependencies.
+
+The complete pipeline is computationally intensive. In particular, processing the LiDAR and imperviousness data can take susbstantial time and require significant disk space. 
+
+## Study areas
+
+The study areas used in this project are defined in `_targets.R`:
+
+```r
 cities <- tibble::tibble(
   city_name  = c("City of Bristol (B)", "Gateshead District (B)", "Newcastle upon Tyne District (B)", "Exeter District (B)", "City of Nottingham (B)"),
   city_label = c("Bristol", "Gateshead", "Newcastle", "Exeter", "Nottingham"))
 ```
+The pipeline uses British National Grid (ESPG:27700) as the project coordinate reference system. Changing the study areas may require additional source data covering the new locations and editing the cities table. 
+
+## Reproducibility
+
+The repository contains three components intended to support reproducibility:
+
+- `renv.lock` records the R package environment used for the project.
+- `_targets.R` and `R/` contain the complete computational workflow used to construct the analysis datasets.
+- Analysis read grids preseve the datasets used for statistical modellling without requiring users to repeat the large source-data downloads and computationally expensive geospatial processing.
+
+Original datasets are not stored in this GitHub repository due to their size and, where applicable, external licensing and redistribution requirements. 

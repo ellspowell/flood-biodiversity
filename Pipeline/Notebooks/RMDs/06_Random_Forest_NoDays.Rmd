@@ -1,0 +1,341 @@
+---
+title: "06 Random Forest NoDays"
+author: "EP"
+date: "2026-07-22"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Random Forest : Classification
+
+**This notebook mirrors the previous notebook (05_Random_Forest_Classification.Rmd) but drops the predictor `n_days`**
+
+For comparison with current literature, below I run the richness and Simpson random forest models using classification over regression. The richness and Simpson diversity indices are split based on median, creating two diversity labels: "high" and "low". This mirrors the approach taken by recent studies in which two groups of samples are matched, e.g. 500 "flood" and 500 "no flood" samples. 
+
+```{r message=FALSE}
+library(targets)
+library(tidymodels)
+library(ranger)
+library(sf)
+library(dplyr)    
+
+
+
+set.seed(399) 
+```
+
+## Load Data
+Read in the final grid model and transform the simpson scores. This isn't strictly necessary for Random Forest but allows for direct comparison with the beta regression model.
+```{r message=FALSE}
+setwd("~/CSCT_Pipeline")
+
+grid_model_all <- tar_read(grid_model_all)
+
+df <- grid_model_all %>%
+  sf::st_drop_geometry()
+
+n <- nrow(df)
+df$simpson_adj <- (df$simpson * (n - 1) + 0.5) / n
+
+predictors <- c("dtm_elev", "avg_imperv", "rofsw_risk", "rofrs_risk",
+                 "avg_area_ha", "treeht", "weighted_precip", "weighted_temp",
+                 "dist_to_river", "pct_greenspace")
+```
+
+### Model Setup : Richness and Simpson
+```{r}
+#Classification setup
+df <- df %>%
+  mutate(
+    richness_class = factor(
+      if_else(sp_richness >= median(sp_richness, na.rm = TRUE), "high", "low"), 
+      levels = c("low", "high")),
+    simpson_class = factor(
+      if_else(simpson_adj >= median(simpson_adj, na.rm = TRUE), "high", "low"), 
+      levels = c("low", "high")))
+
+#RF Specification
+rf_spec_class <- rand_forest(
+  mtry  = tune(),
+  min_n = tune(),
+  trees = 500) %>%
+  set_engine("ranger", importance = "permutation",
+             respect.unordered.factors = "order", probability = TRUE) %>%
+  set_mode("classification")
+
+#Folds & fold city names
+folds <- group_vfold_cv(df, group = city)
+
+fold_city_lookup <- folds %>%
+  mutate(city = purrr::map_chr(
+    splits,~ as.character(unique(assessment(.x)$city)))) %>%
+  select(id, city)
+
+#RF Recipe and Workflow
+richness_recipe_class <- recipe(
+  as.formula(paste("richness_class ~", paste(predictors, collapse = " + "))),
+  data = df) %>%
+  step_naomit(all_predictors(), all_outcomes())
+
+richness_wf_class <- workflow() %>%
+  add_recipe(richness_recipe_class) %>%
+  add_model(rf_spec_class)
+
+simpson_recipe_class <- recipe(
+  as.formula(paste("simpson_class ~", paste(predictors, collapse = " + "))),
+  data = df) %>%
+  step_naomit(all_predictors(), all_outcomes())
+
+simpson_wf_class <- workflow() %>%
+  add_recipe(simpson_recipe_class) %>%
+  add_model(rf_spec_class)
+
+rf_grid <- grid_regular(
+  mtry(range = c(2, 8)),
+  min_n(range = c(2, 15)),
+  levels = 5) #Total of 25 combinations in the grid.
+```
+
+### Hyperparameter Tuning
+```{r}
+richness_res_class <- tune_grid(
+  richness_wf_class,
+  resamples = folds,
+  grid      = rf_grid,
+  metrics   = metric_set(roc_auc, accuracy, sensitivity, specificity))
+
+simpson_res_class <- tune_grid(
+  simpson_wf_class,
+  resamples = folds,
+  grid      = rf_grid,
+  metrics   = metric_set(roc_auc, accuracy, sensitivity, specificity))
+
+autoplot(richness_res_class)
+autoplot(simpson_res_class)
+```
+
+### Select Best Hyperparameters
+```{r}
+show_best(richness_res_class, metric = "roc_auc", n = 5) %>%
+  select(mtry, min_n, mean, std_err) %>%
+  mutate(across(c(mean, std_err), ~ round(.x, 3))) %>%
+  rename("Mean ROC AUC" = mean, "Std. error" = std_err) %>%
+  knitr::kable(
+    caption = "Top 5 hyperparameter combinations: 
+    species richness class (ranked by ROC AUC)")
+
+show_best(simpson_res_class, metric = "roc_auc", n = 5) %>%
+  select(mtry, min_n, mean, std_err) %>%
+  mutate(across(c(mean, std_err), ~ round(.x, 3))) %>%
+  rename("Mean ROC AUC" = mean, "Std. error" = std_err) %>%
+  knitr::kable(
+    caption = "Top 5 hyperparameter combinations: 
+    Simpson diversity class (ranked by ROC AUC)")
+
+best_richness_class <- select_best(richness_res_class, metric = "roc_auc")
+best_simpson_class  <- select_best(simpson_res_class,  metric = "roc_auc")
+```
+Compared to the previous notebook containing the full model, the AUC scores are considerably lower for both richness and Simpson models. This is to be expected, since in the regression models we saw a decrease in R^2^ of 0.606 to 0.302 when removing `n_days`. However, performance is stable across the grid for both models suggesting little room for further tuning. 
+
+### Prediction Rate AUC
+This looks at the mean AUC across held-out city folds, and individual fold's AUC scores.
+```{r}
+prediction_rate_richness <- collect_metrics(richness_res_class) %>%
+  filter(mtry == best_richness_class$mtry,
+         min_n == best_richness_class$min_n,
+         .metric == "roc_auc")
+
+prediction_rate_simpson <- collect_metrics(simpson_res_class) %>%
+  filter(mtry == best_simpson_class$mtry,
+         min_n == best_simpson_class$min_n,
+         .metric == "roc_auc")
+
+prediction_rate_richness_byfold <- collect_metrics(
+  richness_res_class, summarize = FALSE) %>%
+  filter(mtry == best_richness_class$mtry,
+         min_n == best_richness_class$min_n,
+         .metric == "roc_auc")
+
+prediction_rate_simpson_byfold <- collect_metrics(
+  simpson_res_class, summarize = FALSE) %>%
+  filter(mtry == best_simpson_class$mtry,
+         min_n == best_simpson_class$min_n,
+         .metric == "roc_auc")
+
+overall_richness <- collect_metrics(richness_res_class) %>%
+  filter(mtry == best_richness_class$mtry,
+         min_n == best_richness_class$min_n,
+         .metric == "roc_auc") %>%
+  pull(mean)
+
+overall_simpson <- collect_metrics(simpson_res_class) %>%
+  filter(mtry == best_simpson_class$mtry,
+         min_n == best_simpson_class$min_n,
+         .metric == "roc_auc") %>%
+  pull(mean)
+
+best_richness_class <- select_best(richness_res_class, metric = "roc_auc")
+
+best_simpson_class <- select_best(simpson_res_class, metric = "roc_auc")
+
+overall_richness <- collect_metrics(richness_res_class) %>%
+  filter(mtry == best_richness_class$mtry, 
+         min_n == best_richness_class$min_n, 
+         .metric == "roc_auc") %>%
+  pull(mean)
+
+overall_simpson <- collect_metrics(simpson_res_class) %>%
+  filter(mtry == best_simpson_class$mtry, 
+         min_n == best_simpson_class$min_n, 
+         .metric == "roc_auc") %>%
+  pull(mean)
+
+city_richness <- collect_metrics(richness_res_class, summarize = FALSE) %>%
+  filter(mtry == best_richness_class$mtry, 
+         min_n == best_richness_class$min_n, 
+         .metric == "roc_auc") %>%
+  left_join(fold_city_lookup, by = "id") %>%
+  select(city, .estimate) %>%
+  rename(richness_auc = .estimate)
+
+city_simpson <- collect_metrics(simpson_res_class, summarize = FALSE) %>%
+  filter(mtry == best_simpson_class$mtry, 
+         min_n == best_simpson_class$min_n, 
+         .metric == "roc_auc") %>%
+  left_join(fold_city_lookup,by = "id") %>%
+  select(city, .estimate) %>%
+  rename(simpson_auc = .estimate)
+
+city_auc <- city_richness %>%full_join(city_simpson, by = "city")
+
+overall_auc <- tibble(city = "Overall", 
+                      richness_auc = overall_richness, 
+                      simpson_auc = overall_simpson)
+
+classification_auc_table <- bind_rows(overall_auc, city_auc) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3))) %>%
+  rename("City (Held-Out)" = city, 
+         "Richness ROC AUC" = richness_auc, 
+         "Simpson ROC AUC" = simpson_auc)
+
+classification_auc_table %>%
+  knitr::kable(
+    caption = "Overall and city-level cross-validated ROC AUC for species 
+    richness and Simpson diversity")
+
+# Check for any folds where AUC couldn't be computed (single-class fold)
+richness_na_folds <- prediction_rate_richness_byfold %>%
+  filter(is.na(.estimate))
+
+simpson_na_folds <- prediction_rate_simpson_byfold %>%
+  filter(is.na(.estimate))
+
+richness_na_folds
+simpson_na_folds
+```
+Conversely to the full RF classification model, there is more inter-city variability in AUC score in the richness model (0.786-0.623) than the Simpson model (0.668 to 0.584). Both models have more variation than their full models, suggesting neither generalise to unseen cities very well. 
+
+### Final Model
+This is fit on the entire dataset.
+```{r}
+final_richness_wf_class <- finalize_workflow(
+  richness_wf_class, best_richness_class)
+richness_fit_class <- fit(final_richness_wf_class, data = df)
+
+final_simpson_wf_class <- finalize_workflow(
+  simpson_wf_class, best_simpson_class)
+simpson_fit_class <- fit(final_simpson_wf_class, data = df)
+```
+
+### Success Rate AUC
+```{r}
+richness_success <- augment(richness_fit_class, new_data = df)
+simpson_success  <- augment(simpson_fit_class,  new_data = df)
+
+success_rate_richness <- roc_auc(richness_success, truth = richness_class,
+                                 .pred_high, event_level = "second")
+
+success_rate_simpson <- roc_auc(simpson_success, truth = simpson_class,
+                                .pred_high, event_level = "second")
+
+#saveRDS(richness_fit_class, "richness_fit_class.rds")
+```
+
+### ROC Curves
+```{r}
+p1 <- roc_curve(richness_success, 
+          truth = richness_class, 
+          .pred_high, 
+          event_level = "second") %>%
+  autoplot() + labs(title = "Success rate curve: species richness")
+
+p2 <- roc_curve(simpson_success, 
+          truth = simpson_class, 
+          .pred_high, 
+          event_level = "second") %>%
+  autoplot() + labs(title = "Success rate curve: Simpson diversity")
+p1
+p2
+#ggsave("RN_ND_Rich_Curve.png", p1, width = 12, height = 5, dpi = 300)
+#ggsave("RN_ND_Simp_Curve.png", p2, width = 12, height = 5, dpi = 300)
+```
+
+### Summary Table : Success Rate vs Prediction Rate AUC
+
+```{r}
+tibble::tibble(
+  Outcome = c("Species richness", "Simpson diversity"),
+  `Success rate AUC` = c(success_rate_richness$.estimate,
+                         success_rate_simpson$.estimate),
+  `Prediction rate AUC` = c(prediction_rate_richness$mean,
+                            prediction_rate_simpson$mean),
+  `Prediction rate SE` = c(prediction_rate_richness$std_err,
+                           prediction_rate_simpson$std_err)
+) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3))) %>%
+  knitr::kable(caption = "Random forest classification performance: 
+               success rate vs. prediction rate AUC")
+```
+For both models, there is a big decrease in AUC between success rate AUC and prediction rate AUC suggesting that the models fit the training data well but struggle to generalise to unseen cities. 
+
+### Variable Importance
+```{r}
+p3 <- richness_fit_class %>%
+  extract_fit_engine() %>%
+  ranger::importance() %>%
+  sort(decreasing = TRUE) %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("variable") %>%
+  rename(importance = 2) %>%
+  ggplot(aes(x = reorder(variable, importance), y = importance)) +
+  geom_col(fill = "cyan4") +
+  coord_flip() +
+  labs(title = "Variable importance: species richness classification",
+       x = NULL, y = "Permutation importance")
+
+p4 <- simpson_fit_class %>%
+  extract_fit_engine() %>%
+  ranger::importance() %>%
+  sort(decreasing = TRUE) %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("variable") %>%
+  rename(importance = 2) %>%
+  ggplot(aes(x = reorder(variable, importance), y = importance)) +
+  geom_col(fill = "cyan4") +
+  coord_flip() +
+  labs(title = "Variable importance: Simpson diversity classification",
+       x = NULL, y = "Permutation importance")
+
+p3
+p4
+
+#ggsave("VI_RF_ND_Rich.png", p3, width = 12, height = 5, dpi = 300)
+#ggsave("VI_RF_ND_Simp.png", p4, width = 12, height = 5, dpi = 300)
+
+```
+Despite lower model evaluation scores, the variable importance of predictors is fairly similar to the full model. `pct_greenspace`, `weighted_temp`, and `avg_area_ha` still score highly in the richness model. For the Simpson model, there are similar results again with `pct_greenspace` and `avg_imperv` scoring highest. 
