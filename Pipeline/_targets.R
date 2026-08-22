@@ -13,18 +13,65 @@ cities <- tibble::tibble(
 
 #Load shared targets 
 shared_targets <- list(
-  tar_target(boundary_file, "Data/OS_borders/district_borough_unitary_region.shp", format = "file"),
-  tar_target(rofsw_file, "Data/rofsw_data/rofsw_data.shp", format = "file"),
-  tar_target(rofrs_file, "Data/rofrs_data/rofrs_data_all.shp", format = "file"),
-  tar_target(lidar_zips, {files <- list.files("Data/lidar", pattern = "\\.zip$", full.names = TRUE) if (length(files) == 0){stop("No LIDAR ZIP files found")} files}, format = "file"),
-  tar_target(forest_file, "Data/National_Forest_Inventory_England_2023/National_Forest_Inventory_England_2023.shp", format = "file"),
-  tar_target(trees_file, "Data/trees_outside_woodland_data/trees.shp", format = "file"),
-  tar_target(precip_file, "Data/Annual_Precipitation_Observations_1991_2020/Annual_Precipitation_Observations_1991-2020.shp", format = "file"),
-  tar_target(temp_file, "Data/Annual_Temperature_Observations_1991_2020/Annual_Temperature_Observations_1991-2020.shp", format = "file"),
-  tar_target(imperv_zips, {files <- list.files("Data/Impervious_Density_UK_2024", pattern = "\\.zip$", full.names = TRUE) if (length(files)==0) {stop("No Impervious ZIP files found")} files}, format = "file"),
-  tar_target(rivers_file, "Data/OS_rivers_gb/data/WatercourseLink.shp", format = "file"),
-  tar_target(greenspace_file, "Data/OS_greenspace/GB_GreenspaceSite.shp", format = "file"),
-  tar_target(species_file, "Data/Species_Data.csv", format = "file"))
+  tar_target(
+    boundary_file, 
+    "Data/OS_borders/district_borough_unitary_region.shp", 
+    format = "file"),
+
+  tar_target(
+    rofsw_file, 
+    "Data/rofsw_data/rofsw_data.shp", 
+    format = "file"),
+
+  tar_target(
+    rofrs_file, 
+    "Data/rofrs_data/rofrs_data_all.shp", 
+    format = "file"),
+
+  tar_target(
+    lidar_zips, {files <- list.files("Data/lidar", pattern = "\\.zip$", full.names = TRUE) 
+    if (length(files) == 0){stop("No LIDAR ZIP files found")} 
+    files}, format = "file"),
+
+  tar_target(
+    forest_file, 
+    "Data/National_Forest_Inventory_England_2023/National_Forest_Inventory_England_2023.shp", 
+    format = "file"),
+
+  tar_target(
+    trees_file, "Data/trees_outside_woodland_data/trees.shp", 
+    format = "file"),
+
+  tar_target(
+    precip_file, 
+    "Data/Annual_Precipitation_Observations_1991_2020/Annual_Precipitation_Observations_1991-2020.shp", 
+    format = "file"),
+  
+  tar_target(
+    temp_file, 
+    "Data/Annual_Temperature_Observations_1991_2020/Annual_Temperature_Observations_1991-2020.shp", 
+    format = "file"),
+  
+  tar_target(
+    imperv_zips, 
+    {files <- list.files("Data/Impervious_Density_UK_2024", pattern = "\\.zip$", full.names = TRUE) 
+    if (length(files)==0) {stop("No Impervious ZIP files found")} 
+    files}, format = "file"),
+  
+  tar_target(
+    rivers_file, 
+    "Data/OS_rivers_gb/data/WatercourseLink.shp", 
+    format = "file"),
+  
+  tar_target(
+    greenspace_file, 
+    "Data/OS_greenspace/GB_GreenspaceSite.shp", 
+    format = "file"),
+  
+  tar_target(
+    species_file, 
+    "Data/Species_Data.csv", 
+    format = "file"))
 
 #Build each city using the cities table
 per_city_targets <- tar_map(
