@@ -1,0 +1,182 @@
+---
+title: "08 Shapley Additive Explanations"
+author: "EP"
+date: "2026-07-19"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## SHapley Additive exPlanations (SHAP)
+
+SHAP values were used to interpret two classification models predicting species richness ("high" or "low"): a random forest, using `kernelshap`, and an XGBoost model using TreeSHAP. Both models were configured to explain predicted probability of "high" richness. 
+Because the XGBoost's categorical predictors (ROFSW and ROFRS) were one-hot encoded during preprocessing, these were aggregated back into their original variables. This was to ensure fair, feature-for-feature comparison between models.
+
+```{r message=FALSE}
+library(sf)
+library(kernelshap)
+library(shapviz)
+library(dplyr)
+library(tidymodels)
+library(stringr)
+library(patchwork)
+library(targets)
+library(ranger)
+
+richness_fit_class <- readRDS("Data/richness_fit_class.rds")
+richness_fit_xgb_ND <- readRDS("Data/richness_fit_xgb_ND.rds")
+richness_recipe_xgb_ND <- readRDS("Data/richness_recipe_xgb_ND.rds")
+
+predictors <- c("dtm_elev", "avg_imperv", "rofsw_risk", "rofrs_risk",
+                "avg_area_ha", "treeht", "weighted_precip", "weighted_temp",
+                "dist_to_river", "pct_greenspace")
+```
+
+```{r message=FALSE}
+grid_model_all <- st_read("Data/grid_model.gpkg")
+
+df <- grid_model_all %>% 
+  sf::st_drop_geometry()
+```
+
+## Random Forest
+```{r message=FALSE}
+# Extract model & set predictors
+rf_model <- richness_fit_class %>%
+  extract_fit_engine()
+predictors <- df %>%
+  dplyr::select(all_of(predictors))
+
+# Set probability of "high"
+predictor_function <- function(object, newdata) {
+  predict(object, data = newdata)$predictions[, "high"]}
+
+# Calc SHAP values
+set.seed(399)
+
+rf_shap <- kernelshap(
+  object = rf_model,
+  X = predictors,
+  pred_fun = predictor_function)
+
+# Plot
+sv_rf <- shapviz(rf_shap)
+
+p1 <- sv_importance(sv_rf)
+p2 <- sv_importance(sv_rf, kind = "beeswarm")
+
+rfcombined <- p1 + p2
+#ggsave("rf_shap.png", rfcombined, width = 12, height = 5, dpi = 300)
+p1
+```
+This bar chart displays the SHAP values for the RF model, where the higher the SHAP value the greater the influence that predictor has on predicting "high" richness. `pct_greenspace` is by far the most important predictor in this model, followed by `weighted_temp` and `weighted_precip`. Neither `ROFSW_risk` or `ROFRS_risk` are highly important in this model, but do provide some benefit.
+
+```{r message=FALSE}
+p2
+```
+This beeswarm plot not only shows the importance of each predictor but also the direction of its effect and the associated feature value. 
+For `pct_greenspace`, low values are spread evenly across both negative and positive SHAP values, while high values cluster almost entirely on the right with positive SHAP values. This indicates high greenspace strongly increases the predicted probability of high richness.
+`weighted_temp` shows a similar pattern where low to medium temperatures are associated with probability of low richness, while high temperatures cluster with positive SHAP values. Low precipitation shows the same relationship with low richness. 
+Although ROFSW has a smaller impact on the overall model, there is a clear split where low ROFSW risk clusters at negative SHAP values and high ROFSW with positive SHAP values.
+
+## XGBoost
+Because of the dummy step in the XGBoost model, a bake step is introduced to ensure the data is processed in the same way the model was. However, `kernelshap` is not needed here since the XGBoost package has TreeSHAP built in, which `shapviz` can use. 
+```{r message=FALSE}
+# Prepare predictor matrix
+predictors <- c("dtm_elev", "avg_imperv", "rofsw_risk", "rofrs_risk",
+                "avg_area_ha", "treeht", "weighted_precip", "weighted_temp",
+                "dist_to_river", "pct_greenspace")
+
+X_baked <- bake(richness_recipe_xgb_ND, new_data = df) %>%
+  dplyr::select(-any_of("richness_class"))
+
+# Set up SHAP
+xgb_model <- richness_fit_xgb_ND %>%
+  extract_fit_engine()
+
+# Calc TreeSHAP values
+sv_xgb <- shapviz(
+  object = xgb_model,
+  X_pred = as.matrix(X_baked),
+  X = X_baked)
+
+sv_xgb$S <- -sv_xgb$S
+sv_xgb$baseline <- -sv_xgb$baseline
+```
+### Rejoin ROFSW and ROFRS
+Reform the original ROFSW and ROFRS categories for a beeswarm plot comparable with that of the RF.
+```{r message=FALSE}
+# Map dummy cols to the correct category
+shap_cols <- colnames(sv_xgb$S)
+parent_vars <- c("rofrs_risk", "rofsw_risk")
+col_map <- tibble(col = shap_cols) %>%
+  mutate(parent = case_when(
+    str_starts(col, "rofrs_risk") ~ "rofrs_risk",
+    str_starts(col, "rofsw_risk") ~ "rofsw_risk",
+    TRUE ~ col ))
+
+# Sum SHAP values across dummy cols for each observation & aggregate
+S <- as.data.frame(sv_xgb$S)
+
+S_agg <- sapply(unique(col_map$parent), function(p) {
+  cols <- col_map$col[col_map$parent == p]
+  if (length(cols) == 1) {
+    S[[cols]]} else {
+    rowSums(S[cols])}})
+
+S_agg <- as.data.frame(S_agg)
+colnames(S_agg) <- unique(col_map$parent)
+
+# Rebuild 
+X_agg <- df %>%
+  dplyr::select(all_of(names(S_agg)[names(S_agg) %in% c("rofrs_risk", "rofsw_risk")]))
+other_cols <- setdiff(colnames(S_agg), c("rofrs_risk", "rofsw_risk"))
+X_agg <- cbind(X_baked[other_cols], X_agg)
+
+# Build new shapviz object
+sv_xgb_agg <- shapviz(
+  object = as.matrix(S_agg),
+  X = X_agg)
+
+# Plot
+p3 <- sv_importance(sv_xgb_agg)
+p4 <- sv_importance(sv_xgb_agg, kind = "beeswarm")
+
+xgbcombined <- p3 + p4
+#ggsave("xgboost_shap.png", xgbcombined, width = 12, height = 5, dpi = 300)
+p3
+```
+As seen in the RF model, the top feature is `pct_greenspace`, followed by `weighted_temp` and `weighted_precip`. As before, neither `ROFSW_risk` or `ROFRS_risk` are highly important in this model, but do provide some benefit.
+
+```{r message=FALSE}
+p4
+```
+This beeswarm plot shows that the two models largely agree on both the important predictors and the direction of their effects. As in the RF model, `pct_greenspace` shows an even spread of low values but a clear cluster of high values with positive SHAP values. Both `weighted_temp` and `weighted_precip` again show higher values are associated with a higher predicted proabability of high richness. ROFSW risk shows the same pattern seen in the RF model, with low risk associated with probability of low richness and vice versa.
+
+### Precipitation and Temperature
+```{r message=FALSE}
+p5 <- sv_dependence(sv_rf, "weighted_precip", color_var = "weighted_temp")
+p6 <- sv_dependence(sv_xgb_agg, "weighted_precip", color_var = "weighted_temp")
+
+precip_temp <- p5 + p6
+p5
+p6
+#ggsave("precip_temp_shap.png", precip_temp, width = 12, height = 5, dpi = 300)
+```
+Since these two variables are correlated, a dependence plot was generated to examine their combined effect. Low temperature combined with low precipitation is associated with a predicted probability of low richness, whilst high values are associated with a predicted probability of high. This relationship isn't linear and their appears to be a threshold that must be crossed before the prediction shifts from low to high richness. 
+
+### Elevation vs Distance to River
+```{r message=FALSE}
+p7 <- sv_dependence(sv_rf, "dtm_elev", color_var = "dist_to_river")
+p8 <- sv_dependence(sv_xgb_agg, "dtm_elev", color_var = "dist_to_river")
+
+elevation_river <- p7 + p8
+p7
+p8
+#ggsave("elevation_v_river_shap.png", elevation_river, width = 12, height = 5, dpi = 300)
+```
+These dependence plots shows a more linear relationship between elevation and distance to the nearest river. Proximity to a river is associated with lower elevation and higher SHAP values, indicating a higher predicted probability of high richness at low elevations, near rivers. 

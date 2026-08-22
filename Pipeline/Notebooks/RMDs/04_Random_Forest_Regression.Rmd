@@ -1,0 +1,413 @@
+---
+title: "04 Random Forest"
+author: "EP"
+date: "2026-07-19"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE, warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Random Forest: Regression
+
+```{r message=FALSE}
+library(targets)
+library(tidymodels)
+library(ranger)
+library(sf)
+library(dplyr)    
+library(ggplot2)
+library(corrr)
+
+set.seed(399) 
+```
+## Load Data
+Read in the final grid model and transform the simpson scores. This isn't strictly necessary for Random Forest but allows for direct comparison with the beta regression model.
+```{r}
+# Uncomment if using pipeline data: 
+
+#setwd("~/CSCT_Pipeline")
+
+#grid_model_all <- tar_read(grid_model_all)
+
+#df <- grid_model_all %>%
+  #sf::st_drop_geometry()
+```
+
+```{r}
+#If running with downloaded grid data use:
+
+grid_model_all <- st_read("Data/grid_model.gpkg", quiet = TRUE)
+
+df <- grid_model_all %>% 
+  sf::st_drop_geometry()
+```
+
+```{r}
+n <- nrow(df)
+df$simpson_adj <- (df$simpson * (n - 1) + 0.5) / n
+
+predictors <- c("n_days", "dtm_elev", "avg_imperv", "rofsw_risk", "rofrs_risk",
+                 "avg_area_ha", "treeht", "weighted_precip", "weighted_temp",
+                 "dist_to_river", "pct_greenspace")
+```
+## Spatial cross-validation setup
+Using distinct cities could introduce some spatial autocorrelation between cities but also between neighbouring grid squares that are likely to be similar naturally. This method of cross-validation ensures all rows from the same city remain in either the training or test set for each given fold. In this case, there are 5 cities so 5 folds are produced. Each fold contains 4 cities as training and one as the test set.  
+```{r}
+folds <- group_vfold_cv(df, group = city)
+```
+# Richness model
+
+### Model specification and tuning grid
+This section defines the type of model (`rf_spec`) with number of trees fixed at 500. `richness_recipe` describes the data preprocessing and builds the model formula. `richess_wf` then bundles these together so future tuning can be run in a single call. `rf_grid` specifies the hyperparameter combinations to try. Here I have used 5 evenly spaced number of predictors between 2 and 8, and 5 evenly spaced values between 2 and 25 for the minimum number of observations at each terminal node. 
+```{r}
+rf_spec <- rand_forest(
+  mtry  = tune(),
+  min_n = tune(),
+  trees = 500) %>%
+  set_engine("ranger", 
+             importance = "permutation", 
+             respect.unordered.factors = "order") %>%
+  set_mode("regression") 
+
+richness_recipe <- recipe(
+  as.formula(paste("sp_richness ~", paste(predictors, collapse = " + "))),
+  data = df) %>%
+  step_naomit(all_predictors(), all_outcomes())
+
+richness_wf <- workflow() %>%
+  add_recipe(richness_recipe) %>%
+  add_model(rf_spec)
+
+rf_grid <- grid_regular(
+  mtry(range = c(2, 8)),
+  min_n(range = c(2, 15)),
+  levels = 5) #Total of 25 combinations in the grid.
+```
+### Tune via leave-one-city-out cross-validation
+This runs the 25 hyperparameter combinations on each of the 5 folds, a total of 125 models are fit. For each, three performance metrics are calculated: Root mean square error (RSME), R^2^, and Mean Absolute Error (MAE).
+Performance (using RSME) is plotted to visually demonstrate which hyperparameters perform best, and top 5 combinations are printed as a table.
+```{r}
+richness_res <- tune_grid(
+  richness_wf,
+  resamples = folds,
+  grid      = rf_grid,
+  metrics   = metric_set(rmse, rsq, mae))
+
+autoplot(richness_res)
+show_best(richness_res, metric = "rmse", n = 5) %>%
+  select(mtry, min_n, mean, std_err) %>%
+  mutate(across(c(mean, std_err), ~ round(.x, 3))) %>%
+  rename(
+    "mtry" = mtry,
+    "min_n" = min_n,
+    "Mean RMSE" = mean,
+    "Std. error" = std_err
+  ) %>%
+  knitr::kable(caption = "Top 5 hyperparameter combinations: 
+               species richness (ranked by RMSE)")
+```
+### Finalize and fit best model
+This selects the best performing model and uses the original `richness_wf` to plug in the best hyperparameters. The final model is then run on the entire dataset.
+```{r}
+best_richness <- select_best(richness_res, metric = "rmse")
+final_richness_wf <- finalize_workflow(richness_wf, best_richness)
+richness_fit <- fit(final_richness_wf, data = df)
+
+richness_engine_fit <- richness_fit %>% extract_fit_engine()
+
+tibble::tibble(
+  Parameter = c("mtry", "min.node.size", "num.trees", 
+                "OOB prediction error (MSE)", "R² (OOB)"),
+  Value = c(
+    richness_engine_fit$mtry,
+    richness_engine_fit$min.node.size,
+    richness_engine_fit$num.trees,
+    round(richness_engine_fit$prediction.error, 3),
+    round(richness_engine_fit$r.squared, 3)
+  )
+) %>%
+  knitr::kable(caption = "Final random forest model: species richness")
+```
+The richness model performs well overall, with an Out of Bag (OOB) R^2^ = 0.606 and RSME = 71.752. 
+
+### Cross-validated performance 
+Extract the performance metrics, by city, for the best performing model (i.e. the final model used).
+```{r}
+fold_city_lookup <- folds %>%
+  mutate(city = purrr::map_chr(
+    splits, ~ as.character(unique(assessment(.x)$city)))) %>%
+  select(id, city)
+
+richness_cv_metrics <- collect_metrics(richness_res, summarize = FALSE) %>%
+  filter(mtry == best_richness$mtry, min_n == best_richness$min_n) %>%
+  left_join(fold_city_lookup, by = "id")
+
+richness_cv_metrics %>%
+  select(city, .metric, .estimate) %>%
+  tidyr::pivot_wider(names_from = .metric, values_from = .estimate) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3))) %>%
+  rename(
+    "City (Held-Out)" = city,
+    "RMSE" = rmse,
+    "R²" = rsq,
+    "MAE" = mae
+  ) %>%
+  knitr::kable(caption = "Cross-validated performance by city: 
+               species richness")
+```
+Spatial cross-validated performance by city identifies Bristol as an outlier, with a much larger RSME (139.045) and R^2^ (0.437), suggesting that Bristol's grid make-up differs from the cities in some way. This could potentially be due to a different pool of species types or city environment (e.g. more precipitation or built up areas). 
+
+### Variable importance
+This plots the variable importance. 
+```{r}
+p1 <- richness_fit %>%
+  extract_fit_engine() %>%
+  ranger::importance() %>%
+  sort(decreasing = TRUE) %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("variable") %>%
+  rename(importance = 2) %>%
+  ggplot(aes(x = reorder(variable, importance), y = importance)) +
+  geom_col(fill = "cyan4") +
+  coord_flip() +
+  labs(title = "Variable importance: species richness", 
+       x = NULL, 
+       y = "Permutation importance")
+p1
+#ggsave("VI_RF_Reg_Rich.png", p1, width = 12, height = 5, dpi = 300)
+```
+This shows `n_days` as the dominant predictor. This is understandable since a greater sampling effort will lead to more species records and, therefore, a better idea of the true richness. However, it is so dominant that it is worth checking for any correlation between predictors to ensure other environmental predictors aren't being masked. 
+
+# Simpson Model
+This process is then applied to the Simpson diversity scores.
+
+### Specify
+```{r}
+simpson_recipe <- recipe(
+  as.formula(paste("simpson_adj ~", paste(predictors, collapse = " + "))),
+  data = df) %>%
+  step_naomit(all_predictors(), all_outcomes())
+
+simpson_wf <- workflow() %>%
+  add_recipe(simpson_recipe) %>%
+  add_model(rf_spec)
+```
+### Tune
+```{r}
+simpson_res <- tune_grid(
+  simpson_wf,
+  resamples = folds,
+  grid      = rf_grid,
+  metrics   = metric_set(rmse, rsq, mae)
+)
+
+autoplot(simpson_res)
+show_best(simpson_res, metric = "rmse", n = 5) %>%
+  select(mtry, min_n, mean, std_err) %>%
+  mutate(across(c(mean, std_err), ~ round(.x, 3))) %>%
+  rename(
+    "Mean RMSE" = mean,
+    "Std. error" = std_err
+  ) %>%
+  knitr::kable(caption = "Top 5 hyperparameter combinations: 
+               Simpson diversity (ranked by RMSE)")
+```
+### Final Model
+```{r}
+best_simpson <- select_best(simpson_res, metric = "rmse")
+final_simpson_wf <- finalize_workflow(simpson_wf, best_simpson)
+simpson_fit <- fit(final_simpson_wf, data = df)
+
+simpson_engine_fit <- simpson_fit %>% extract_fit_engine()
+
+tibble::tibble(
+  Parameter = c("mtry", "min.node.size", "num.trees", 
+                "OOB prediction error (MSE)", "R² (OOB)"),
+  Value = c(
+    simpson_engine_fit$mtry,
+    simpson_engine_fit$min.node.size,
+    simpson_engine_fit$num.trees,
+    round(simpson_engine_fit$prediction.error, 3),
+    round(simpson_engine_fit$r.squared, 3)
+  )
+) %>%
+  knitr::kable(caption = "Final random forest model: Simpson diversity")
+```
+
+### Cross-Validation Performance
+```{r}
+simpson_cv_metrics <- collect_metrics(simpson_res, summarize = FALSE) %>%
+  filter(mtry == best_simpson$mtry, min_n == best_simpson$min_n) %>%
+  left_join(fold_city_lookup, by = "id")  
+
+simpson_cv_metrics %>%
+  select(city, .metric, .estimate) %>%
+  tidyr::pivot_wider(names_from = .metric, values_from = .estimate) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3))) %>%
+  rename(
+    "City (held out)" = city,
+    "RMSE" = rmse,
+    "R²" = rsq,
+    "MAE" = mae
+  ) %>%
+  knitr::kable(caption = "Cross-validated performance by held-out city: 
+               Simpson diversity")
+```
+
+
+### Variable Importance
+```{r}
+p2 <- simpson_fit %>%
+  extract_fit_engine() %>%
+  ranger::importance() %>%
+  sort(decreasing = TRUE) %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("variable") %>%
+  rename(importance = 2) %>%
+  ggplot(aes(x = reorder(variable, importance), y = importance)) +
+  geom_col(fill = "cyan4") +
+  coord_flip() +
+  labs(title = "Variable importance: Simpson diversity", 
+       x = NULL, 
+       y = "Permutation importance")
+p2
+#ggsave("VI_RF_Reg_Simp.png", p2, width = 12, height = 5, dpi = 300)
+```
+This models performance drastically weaker than the richness RF model, with an R^2^ = 0.375 and city based cross-validation R^2^ scores ranging from 0.265 to 0.586. Similar to the richness RF model, `n_days` is the dominant predictor. There are several predictors with negative permutation importance (`weighted_precip`, `dist_to_river` etc.) which happens when the model performance improves with shuffled data compared to the original data. It is likely that this is due to the small sample size but could indicate non-predictive/noisy features or correlated features within the dataset.
+
+# Exploring `n_days` as a variable
+
+Variable importance in both RF models indicate that `n_days` greatly dominates over all other environmental variables. Before interpreting the environmental predictors, it's important to check whether `n_days` reflects a genuine ecological driver or a sampling-effort artefact. A sampling effort artefact would inflate its importance without informing us about environmental drivers of biodiversity.
+
+### Correlation with other predictors
+```{r}
+numeric_predictors <- df %>%
+  select(n_days, all_of(predictors)) %>%
+  select(where(is.numeric)) %>%
+  names()
+
+df %>%
+  select(all_of(numeric_predictors)) %>%
+  cor(use = "pairwise.complete.obs") %>%
+  as.data.frame() %>%
+  select(n_days) %>%
+  arrange(desc(abs(n_days)))
+```
+`n_days` has a weak correlation with the other predictors (the highest score is 0.22) suggesting that its statistical significance is unrelated to other variables.
+
+### Variation by city
+```{r}
+p3 <- ggplot(df, aes(x = city, y = n_days)) +
+  geom_boxplot(fill = "cyan4") +
+  labs(title = "n_days by city")
+p3
+#ggsave("n_days_by_city.png", p3, width = 12, height = 5, dpi = 300)
+```
+
+```{r}
+city_aov <- aov(n_days ~ city, data = df)
+summary(city_aov)
+
+ss <- summary(city_aov)[[1]][["Sum Sq"]]
+r2_city <- ss[1] / sum(ss)
+r2_city
+
+p4 <- df %>%
+  select(n_days, sp_richness) %>%
+  ggplot(aes(x = n_days, y = sp_richness)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth()
+p4
+#ggsave("ndays_sp_rich.png", p4, width = 12, height = 5, dpi = 300)
+```
+These results indicate that there is a statistically significant effect (p = 1.38e-05) but it is very small (R^2^ = 0.056). I.e. City explains just 5.6% of the variance in `n_days`. 
+
+The `sp_richness`/`n_days` curve shows that richness does indeed increase with number of days sampled. It shows a steep increase in species detection between 0-500 days, with most of the samples clustered in this area. After 1000 days, it begins to plateau and samples become sparse. Scatter is consistently wide throughout the graph, suggesting that, whilst `n_days` does direct species richness, it does not tightly determine richness alone. 
+
+### RF Model without `n_days`
+
+To get a better idea of what other ecological drivers might be at play, the model is rerun without `n_days` for comparison. 
+
+```{r}
+predictors_nodays <- c("dtm_elev", "avg_imperv", "rofsw_risk", "rofrs_risk",
+                 "avg_area_ha", "treeht", "weighted_precip", "weighted_temp",
+                 "dist_to_river", "pct_greenspace")
+
+richness_recipe_nd <- recipe(
+  as.formula(paste("sp_richness ~",paste(predictors_nodays, collapse = " + "))),
+  data = df) %>%
+  step_naomit(all_predictors(), all_outcomes())
+
+richness_wf_nd <- workflow() %>%
+  add_recipe(richness_recipe_nd) %>%
+  add_model(rf_spec)
+
+rf_grid <- grid_regular(
+  mtry(range = c(2, 8)),
+  min_n(range = c(2, 15)),
+  levels = 5) #Total of 25 combinations in the grid.
+
+richness_res_nd <- tune_grid(
+  richness_wf_nd,
+  resamples = folds,
+  grid      = rf_grid,
+  metrics   = metric_set(rmse, rsq, mae))
+
+autoplot(richness_res_nd)
+show_best(richness_res_nd, metric = "rmse", n = 5) %>%
+  select(mtry, min_n, mean, std_err) %>%
+  mutate(across(c(mean, std_err), ~ round(.x, 3))) %>%
+  rename(
+    "mtry" = mtry,
+    "min_n" = min_n,
+    "Mean RMSE" = mean,
+    "Std. error" = std_err
+  ) %>%
+  knitr::kable(caption = "Top 5 hyperparameter combinations: 
+               species richness (ranked by RMSE) no `n_days`")
+
+best_richness_nd <- select_best(richness_res_nd, metric = "rmse")
+final_richness_wf_nd <- finalize_workflow(richness_wf_nd, best_richness_nd)
+richness_fit_nd <- fit(final_richness_wf_nd, data = df)
+
+richness_engine_fit_nd <- richness_fit_nd %>% extract_fit_engine()
+
+tibble::tibble(
+  Parameter = c("mtry", "min.node.size", "num.trees", 
+                "OOB prediction error (MSE)", "R² (OOB)"),
+  Value = c(
+    richness_engine_fit_nd$mtry,
+    richness_engine_fit_nd$min.node.size,
+    richness_engine_fit_nd$num.trees,
+    round(richness_engine_fit_nd$prediction.error, 3),
+    round(richness_engine_fit_nd$r.squared, 3)
+  )
+) %>%
+  knitr::kable(
+    caption = "Final random forest model: species richness no `n_days`")
+```
+The R^2^ (0.302) is considerably lower than the original richness RF model's R^2^ (0.606).
+
+```{r}
+p5 <- richness_fit_nd %>%
+  extract_fit_engine() %>%
+  ranger::importance() %>%
+  sort(decreasing = TRUE) %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("variable") %>%
+  rename(importance = 2) %>%
+  ggplot(aes(x = reorder(variable, importance), y = importance)) +
+  geom_col(fill = "cyan4") +
+  coord_flip() +
+  labs(title = "Variable importance: Richness diversity no `n_days`", 
+       x = NULL, 
+       y = "Permutation importance")
+p5
+#ggsave("VI_RF_Reg_ND_Rich.png", p5, width = 12, height = 5, dpi = 300)
+```
+
+For comparison with published literature, the next Rmd looks at Random Forest using classification and ROC AUC.

@@ -1,0 +1,205 @@
+---
+title: "02 Exploratory Data Analysis"
+author: "EP"
+date: "2026-02-20"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Analysis of the Grid Model Data
+
+Following creation of the final grid, exploratory data analysis is carried out to determine the types of models to be used and illustrate the data.
+
+```{r, message = FALSE}
+
+library(targets)
+library(sf)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(ggplot2)
+library(patchwork)
+library(GGally)
+library(skimr)
+
+```
+
+```{r, message = FALSE}
+#If running with downloaded grid data use:
+
+grid_model_all <- st_read("Data/grid_model.gpkg", quiet = TRUE)
+
+df <- grid_model_all %>% 
+  sf::st_drop_geometry()
+```
+
+```{r, message = FALSE}
+#If running after running the pipeline use: 
+
+#setwd("~/CSCT_Pipeline")
+#grid_model_all <- tar_read(grid_model_all)
+
+#df <- grid_model_all %>%
+ # sf::st_drop_geometry()
+```
+
+```{r}
+predictors <- c("n_days", "dtm_elev", "avg_imperv", "rofsw_risk", "rofrs_risk",
+                "avg_area_ha", "treeht", "weighted_precip", "weighted_temp",
+                "dist_to_river", "pct_greenspace")
+```
+
+### Plot the Study Area for each city
+The following plots show each cities boundary (in red) and the 1km^2^ grid squares (black).
+```{r, message = FALSE}
+#setwd("~/CSCT_Pipeline") Uncomment if working from pipeline, otherwise use downloaded files from GitHub. 
+project_crs <- 27700
+
+cities <- tibble::tibble(
+  city_label = c("Bristol", "Gateshead", "Newcastle", "Exeter", "Nottingham"),
+  city_name  = c(
+    "City of Bristol (B)",
+    "Gateshead District (B)",
+    "Newcastle upon Tyne District (B)",
+    "Exeter District (B)",
+    "City of Nottingham (B)"),
+  grid_file = c(
+    "Data/grid_1km_Bristol.gpkg",
+    "Data/grid_1km_Gateshead.gpkg",
+    "Data/grid_1km_Newcastle.gpkg",
+    "Data/grid_1km_Exeter.gpkg",
+    "Data/grid_1km_Nottingham.gpkg"))
+
+grids <- cities %>%
+  mutate(grid = map(grid_file, ~ st_read(.x, quiet = TRUE) %>% st_transform(project_crs))) 
+
+grid_model_all <- map2(grids$grid, grids$city_label, ~ mutate(.x, city_label = .y)) %>%
+  bind_rows()
+
+boundary <- st_read("Data/OS_borders/district_borough_unitary_region.shp", quiet = TRUE) %>%
+  st_transform(project_crs)
+
+boundaries <- boundary %>%
+  inner_join(cities %>% select(city_name, city_label), by = c("NAME" = "city_name"))
+
+grid_cities <- st_within(grid_model_all, boundaries %>% select(city_label))
+
+plot_grid <- function(city){
+  city_grid     <- grid_model_all %>% filter(city_label == city)
+  city_boundary <- boundaries %>% filter(city_label == city)
+
+  ggplot() +
+    geom_sf(data = city_grid, colour = "black", fill = NA, linewidth = 0.3) +
+    geom_sf(data = city_boundary, colour = "red", fill = NA, linewidth = 1.2) +
+    coord_sf(
+      xlim = st_bbox(city_boundary)[c("xmin", "xmax")],
+      ylim = st_bbox(city_boundary)[c("ymin", "ymax")],
+      expand = TRUE) +
+    labs(title = paste(city, "Boundary with Grid"), x = NULL, y = NULL) +
+    theme_gray()}
+
+plots <- set_names(cities$city_label) %>%
+  map(plot_grid)
+
+plots$Bristol
+plots$Gateshead
+plots$Newcastle
+plots$Exeter
+plots$Nottingham
+
+```
+
+### Number of grid cells
+These plots show the number of grid cells per city, prior to modelling. This is the total number of grid squares, before rows are removed due to missingness.
+```{r}
+cityplot<- df %>%
+  count(city) %>%
+  ggplot(aes(city, n)) +
+  geom_col(fill = "cyan4") +
+  labs(x = "City", y = "Grid cells", title = "Grid Cells per City Prior to Modelling") +
+  theme_grey()
+cityplot
+
+```
+
+### Numerical Summary Statistics
+These summary statistics look at the numerical variables in the grid.
+```{r}
+numerical_predictors <- c("n_days", "dtm_elev", "avg_imperv",
+                "avg_area_ha", "treeht", "weighted_precip", "weighted_temp",
+                "dist_to_river", "pct_greenspace")
+
+summary_table <- df %>%
+  select(all_of(numerical_predictors)) %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "Predictor",
+    values_to = "Value") %>%
+  group_by(Predictor) %>%
+  summarise(
+    Mean = mean(Value, na.rm = TRUE),
+    SD   = sd(Value, na.rm = TRUE),
+    Min  = min(Value, na.rm = TRUE),
+    Max  = max(Value, na.rm = TRUE),
+    .groups = "drop")
+
+summary_table
+```
+
+### Distributions
+The distribution of these numerical variables is varied. There is some skew in the data and multiple peaks in the the precipitation and temperature categories. This is to be expected since the cities are geographically distinct from each other.
+```{r, message = FALSE}
+dist_hists <- df %>%
+  pivot_longer(all_of(numerical_predictors)) %>%
+  ggplot(aes(value)) +
+  geom_histogram(bins = 30, fill = "cyan4") +
+  facet_wrap(~name, scales = "free")
+
+dist_hists
+```
+
+### Correlation Matrix
+Correlation anaylsis indicates that there is very little correlation between variables. The strongest correlations lie between distance to river and elevation, and precipitation and temperature. These are both environmentally logical.
+```{r, message = FALSE}
+library(corrplot)
+
+corrplot(
+  cor(df[numerical_predictors], use = "pairwise.complete.obs"),
+  method = "color",
+  type = "upper")
+
+```
+
+### Richness and Simpson
+These histograms show non-normally distributed data. The richness data is heavily skewed and overdispersed, with a few extreme outliers. The Simpson histogram also shows highly skewed data, bound between 0 and 1, but with a small, long tail. 
+To account for this, a negative binomial regression will be used for the richness diversity indice and a beta regression model for the Simpson diversity indice.
+```{r, message = FALSE}
+rich_hist <- ggplot(df, aes(sp_richness)) +
+  geom_histogram(fill = "cyan4")
+
+simp_hist <- ggplot(df, aes(simpson)) +
+  geom_histogram(fill = "cyan4")
+
+rich_hist
+simp_hist
+
+```
+
+### ROFSW and ROFRS
+These bar plots show the spread of categorical variables, Risk of flooding from surface water (ROFSW) and Risk of flooding from rivers and seas (ROFRS). The variance between categories is large in both variables, but especially the ROFSW. In ROFRS, there is a huge number of grid cells with no data associated. This may prove an unreliable predictor when modelling biodiversity.
+```{r, message = FALSE}
+rofsw <- ggplot(df, aes(rofsw_risk)) +
+  geom_bar(fill = "cyan4")
+
+rofrs <- ggplot(df, aes(rofrs_risk)) +
+  geom_bar(fill = "cyan4")
+
+rofsw
+rofrs
+```
+
