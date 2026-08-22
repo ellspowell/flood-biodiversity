@@ -101,6 +101,11 @@ The exploratory analysis includes:
 
 ```text
 Data/grid_model.gpkg
+Data/grid_1km_Bristol.gpkg
+Data/grid_1km_Exeter.gpkg
+Data/grid_1km_Nottingham.gpkg
+Data/grid_1km_Newcastle.gpkg
+Data/grid_1km_Gateshead.gpkg
 Data/OS_borders/
 ```
 
