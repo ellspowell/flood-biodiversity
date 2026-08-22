@@ -1,6 +1,5 @@
 library(targets)
 library(tarchetypes)
-setwd("~/CSCT_Pipeline")
 
 tar_option_set(packages = c("readr", "sf", "dplyr", "terra", "tidyr", "tidyverse", "vegan", "ggplot2", "MASS", "betareg", "ranger"))
 tar_source()
@@ -17,17 +16,17 @@ shared_targets <- list(
   tar_target(boundary_file, "Data/OS_borders/district_borough_unitary_region.shp", format = "file"),
   tar_target(rofsw_file, "Data/rofsw_data/rofsw_data.shp", format = "file"),
   tar_target(rofrs_file, "Data/rofrs_data/rofrs_data_all.shp", format = "file"),
-  tar_target(lidar_zips, list.files("Data/lidar", pattern = "\\.zip$", full.names = TRUE), format = "file"),
+  tar_target(lidar_zips, {files <- list.files("Data/lidar", pattern = "\\.zip$", full.names = TRUE) if (length(files) == 0){stop("No LIDAR ZIP files found")} files}, format = "file"),
   tar_target(forest_file, "Data/National_Forest_Inventory_England_2023/National_Forest_Inventory_England_2023.shp", format = "file"),
   tar_target(trees_file, "Data/trees_outside_woodland_data/trees.shp", format = "file"),
   tar_target(precip_file, "Data/Annual_Precipitation_Observations_1991_2020/Annual_Precipitation_Observations_1991-2020.shp", format = "file"),
   tar_target(temp_file, "Data/Annual_Temperature_Observations_1991_2020/Annual_Temperature_Observations_1991-2020.shp", format = "file"),
-  tar_target(imperv_zips, list.files("Data/Impervious_Density_UK_2024", pattern = "\\.zip$", full.names = TRUE), format = "file"),
+  tar_target(imperv_zips, {files <- list.files("Data/Impervious_Density_UK_2024", pattern = "\\.zip$", full.names = TRUE) if (length(files)==0) {stop("No Impervious ZIP files found")} files}, format = "file"),
   tar_target(rivers_file, "Data/OS_rivers_gb/data/WatercourseLink.shp", format = "file"),
   tar_target(greenspace_file, "Data/OS_greenspace/GB_GreenspaceSite.shp", format = "file"),
   tar_target(species_file, "Data/Species_Data.csv", format = "file"))
 
-#Build each city using the cities table 
+#Build each city using the cities table
 per_city_targets <- tar_map(
   values = cities,
   names = city_label,
@@ -39,12 +38,12 @@ per_city_targets <- tar_map(
   tar_target(rofsw, load_within_boundary(rofsw_file, project_crs, study_boundary)),
   tar_target(rofrs, load_within_boundary(rofrs_file, project_crs, study_boundary)),
   
-  tar_target(dtm, build_dtm(lidar_zips, study_boundary, city_label), format = "file"), #Remove for quicker run time
-  tar_target(imperv, build_imperviousness(imperv_zips, study_boundary, city_label), format = "file"), #Remove for quicker run time
+  tar_target(dtm, build_dtm(lidar_zips, study_boundary, city_label), format = "file"), 
+  tar_target(imperv, build_imperviousness(imperv_zips, study_boundary, city_label), format = "file"), 
   
   tar_target(grid_base, make_grid(study_boundary)),
-  tar_target(grid_elev, add_elevation(grid_base, dtm)), #Remove for quicker run time
-  tar_target(grid_flood, add_flood_risk(grid_elev, rofsw, rofrs)), #Change grid_elev for grid_base for quicker run time
+  tar_target(grid_elev, add_elevation(grid_base, dtm)), 
+  tar_target(grid_flood, add_flood_risk(grid_elev, rofsw, rofrs)), 
   
   tar_target(forest, load_within_boundary(forest_file, project_crs, study_boundary)),
   tar_target(grid_forest, add_forest(grid_flood, forest)),
@@ -58,11 +57,11 @@ per_city_targets <- tar_map(
   tar_target(temp, load_intersecting(temp_file, project_crs, study_boundary)),
   tar_target(grid_temp, add_weighted_climate(grid_precip, temp, "tas", "weighted_temp")),
   
-  tar_target(grid_imperv, add_imperviousness(grid_temp, imperv, project_crs)), #Remove for quicker run time
+  tar_target(grid_imperv, add_imperviousness(grid_temp, imperv, project_crs)), 
   
   tar_target(rivers_boundary, sf::st_buffer(study_boundary, 5000)),
   tar_target(rivers, load_within_boundary(rivers_file, project_crs, rivers_boundary)),
-  tar_target(grid_rivers, add_river_distance(grid_imperv, rivers)), #Change grid_imperv for grid_temp for quicker run time
+  tar_target(grid_rivers, add_river_distance(grid_imperv, rivers)), 
   
   tar_target(greenspace, load_within_boundary(greenspace_file, project_crs, study_boundary)),
   tar_target(grid_final, add_greenspace(grid_rivers, greenspace)),
