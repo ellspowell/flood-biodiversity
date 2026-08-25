@@ -66,8 +66,10 @@ The full model improves on the null model substantially with both Akaike Informa
 Three predictors were significant, with positive correlations: `n_days` (p <2e-16), `weighted_temp` (p = 0.00646), and `pct_greenspace` (p = 1.47e-06). The remaining predictors show no significant linear association with richness in this model.
 However, the null model is fit on a complete dataset whereas the full dataset is on complete grid squares only (177 rows are dropped due to missingness). Below is a like for like comparison where null is refit to the same conditions as the full model.
 ```{r}
+#Remove NAs
 grid_model_rich <- grid_model_all %>% tidyr::drop_na(all_of(predictors), sp_richness)
 
+#Fit null and full neg binomial models with matched data
 rich_null_matched <- MASS::glm.nb(sp_richness ~ 1, data = grid_model_rich)
 rich_full_matched <- MASS::glm.nb(
   sp_richness ~ n_days + dtm_elev + avg_imperv + rofsw_risk + rofrs_risk +
@@ -75,6 +77,7 @@ rich_full_matched <- MASS::glm.nb(
     pct_greenspace,
   data = grid_model_rich)
 
+# Run likelihood-ratio test
 lmtest::lrtest(rich_null_matched, rich_full_matched)
 ```
 This likelihood ratio test confirms that the full model is a significant improvement on the null model (p < 2.2e-16) on a matched sample. This indicates the predictor set as a whole explains
@@ -91,6 +94,7 @@ summary(simp_full)
 ```
 The full model has a low psuedo R-squared score (0.08938) and a lower log-likelihood compared to the null model (277.2 vs 396.2) suggesting these predictors have not improved the model despite a small significant result in `pct_greenspace` (p=0.0305). Below is a likelihood ratio test to compare the two models.
 ```{r}
+#As before, but added Simpson adjustment step.
 n <- nrow(df)
 df$simpson_adj <- (df$simpson * (n - 1) + 0.5) / n
 grid_model_simp <- df %>%
