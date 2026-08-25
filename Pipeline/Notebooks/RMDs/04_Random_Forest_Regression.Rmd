@@ -47,6 +47,7 @@ df <- grid_model_all %>%
 ```
 
 ```{r}
+#Adjust Simpson scores and set predictors
 n <- nrow(df)
 df$simpson_adj <- (df$simpson * (n - 1) + 0.5) / n
 
@@ -58,12 +59,18 @@ predictors <- c("n_days", "dtm_elev", "avg_imperv", "rofsw_risk", "rofrs_risk",
 Using distinct cities could introduce some spatial autocorrelation between cities but also between neighbouring grid squares that are likely to be similar naturally. This method of cross-validation ensures all rows from the same city remain in either the training or test set for each given fold. In this case, there are 5 cities so 5 folds are produced. Each fold contains 4 cities as training and one as the test set.  
 ```{r}
 folds <- group_vfold_cv(df, group = city)
+
+fold_city_lookup <- folds %>%
+  mutate(city = purrr::map_chr(
+    splits, ~ as.character(unique(assessment(.x)$city)))) %>%
+  select(id, city)
 ```
 # Richness model
 
 ### Model specification and tuning grid
 This section defines the type of model (`rf_spec`) with number of trees fixed at 500. `richness_recipe` describes the data preprocessing and builds the model formula. `richess_wf` then bundles these together so future tuning can be run in a single call. `rf_grid` specifies the hyperparameter combinations to try. Here I have used 5 evenly spaced number of predictors between 2 and 8, and 5 evenly spaced values between 2 and 25 for the minimum number of observations at each terminal node. 
 ```{r}
+# Specification
 rf_spec <- rand_forest(
   mtry  = tune(),
   min_n = tune(),
@@ -73,15 +80,18 @@ rf_spec <- rand_forest(
              respect.unordered.factors = "order") %>%
   set_mode("regression") 
 
+# Model formula
 richness_recipe <- recipe(
   as.formula(paste("sp_richness ~", paste(predictors, collapse = " + "))),
   data = df) %>%
   step_naomit(all_predictors(), all_outcomes())
 
+# Workflow: combine preprocessing recipe and RF specification
 richness_wf <- workflow() %>%
   add_recipe(richness_recipe) %>%
   add_model(rf_spec)
 
+# Construct hyperparameter grid
 rf_grid <- grid_regular(
   mtry(range = c(2, 8)),
   min_n(range = c(2, 15)),
@@ -132,16 +142,11 @@ tibble::tibble(
 ) %>%
   knitr::kable(caption = "Final random forest model: species richness")
 ```
-The richness model performs well overall, with an Out of Bag (OOB) R^2^ = 0.606 and RSME = 71.752. 
+The richness model shows an Out of Bag (OOB) R^2^ = 0.606 and RSME = 71.752. 
 
 ### Cross-validated performance 
 Extract the performance metrics, by city, for the best performing model (i.e. the final model used).
 ```{r}
-fold_city_lookup <- folds %>%
-  mutate(city = purrr::map_chr(
-    splits, ~ as.character(unique(assessment(.x)$city)))) %>%
-  select(id, city)
-
 richness_cv_metrics <- collect_metrics(richness_res, summarize = FALSE) %>%
   filter(mtry == best_richness$mtry, min_n == best_richness$min_n) %>%
   left_join(fold_city_lookup, by = "id")
@@ -277,11 +282,11 @@ p2 <- simpson_fit %>%
 p2
 #ggsave("VI_RF_Reg_Simp.png", p2, width = 12, height = 5, dpi = 300)
 ```
-This models performance drastically weaker than the richness RF model, with an R^2^ = 0.375 and city based cross-validation R^2^ scores ranging from 0.265 to 0.586. Similar to the richness RF model, `n_days` is the dominant predictor. There are several predictors with negative permutation importance (`weighted_precip`, `dist_to_river` etc.) which happens when the model performance improves with shuffled data compared to the original data. It is likely that this is due to the small sample size but could indicate non-predictive/noisy features or correlated features within the dataset.
+This models shows an R^2^ = 0.375 and city based cross-validation R^2^ scores ranging from 0.265 to 0.586. Similar to the richness RF model, `n_days` is the dominant predictor. There are several predictors with negative permutation importance (`weighted_precip`, `dist_to_river` etc.) which happens when the model performance improves with shuffled data compared to the original data. It is possible that this is due to the small sample size, non-predictive/noisy features, or correlated features within the dataset.
 
 # Exploring `n_days` as a variable
 
-Variable importance in both RF models indicate that `n_days` greatly dominates over all other environmental variables. Before interpreting the environmental predictors, it's important to check whether `n_days` reflects a genuine ecological driver or a sampling-effort artefact. A sampling effort artefact would inflate its importance without informing us about environmental drivers of biodiversity.
+Variable importance in both RF models indicate that `n_days` greatly dominates over all other environmental variables. This analysis looks at `n_days` as a predictor.
 
 ### Correlation with other predictors
 ```{r}
@@ -298,6 +303,19 @@ df %>%
   arrange(desc(abs(n_days)))
 ```
 `n_days` has a weak correlation with the other predictors (the highest score is 0.22) suggesting that its statistical significance is unrelated to other variables.
+
+### Scatter correlation 
+```{r}
+# Dataset containing only numeric predictors
+cor_data <- df %>%
+  select(all_of(numeric_predictors))
+
+
+# Plot a scatter correlation matrix
+cor_plot <- GGally::ggpairs(cor_data, lower = list(continuous = GGally::wrap("points", alpha = 0.4, size = 0.8)),
+  upper = list(continuous = GGally::wrap("cor", size = 3)),
+  diag = list(continuous = GGally::wrap("densityDiag")))
+```
 
 ### Variation by city
 ```{r}
@@ -324,13 +342,13 @@ p4 <- df %>%
 p4
 #ggsave("ndays_sp_rich.png", p4, width = 12, height = 5, dpi = 300)
 ```
-These results indicate that there is a statistically significant effect (p = 1.38e-05) but it is very small (R^2^ = 0.056). I.e. City explains just 5.6% of the variance in `n_days`. 
+These results indicate that there is a statistically significant effect (p = 1.38e-05) where city explains 5.6% of the variance in `n_days` (R^2^ = 0.056). 
 
-The `sp_richness`/`n_days` curve shows that richness does indeed increase with number of days sampled. It shows a steep increase in species detection between 0-500 days, with most of the samples clustered in this area. After 1000 days, it begins to plateau and samples become sparse. Scatter is consistently wide throughout the graph, suggesting that, whilst `n_days` does direct species richness, it does not tightly determine richness alone. 
+The `sp_richness`/`n_days` curve shows richness is associated with number of sampling days. It shows a steep increase in species detection between 0-500 days, with most of the samples clustered in this area. After 1000 days, it begins to plateau although samples become sparse here so it is unclear whether this is a true plateau. Scatter is consistently wide throughout the graph.
 
 ### RF Model without `n_days`
 
-To get a better idea of what other ecological drivers might be at play, the model is rerun without `n_days` for comparison. 
+The model is rerun without `n_days` for comparison. 
 
 ```{r}
 predictors_nodays <- c("dtm_elev", "avg_imperv", "rofsw_risk", "rofrs_risk",
