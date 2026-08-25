@@ -60,6 +60,7 @@ The following plots show each cities boundary (in red) and the 1km^2^ grid squar
 #setwd("~/CSCT_Pipeline") Uncomment if working from pipeline, otherwise use downloaded files from GitHub. 
 project_crs <- 27700
 
+# Create cities table
 cities <- tibble::tibble(
   city_label = c("Bristol", "Gateshead", "Newcastle", "Exeter", "Nottingham"),
   city_name  = c(
@@ -75,20 +76,25 @@ cities <- tibble::tibble(
     "Data/grid_1km_Exeter.gpkg",
     "Data/grid_1km_Nottingham.gpkg"))
 
+#Read spatial data (looped) and transform CRS
 grids <- cities %>%
   mutate(grid = map(grid_file, ~ st_read(.x, quiet = TRUE) %>% st_transform(project_crs))) 
 
+#Add city names and combine grids
 grid_model_all <- map2(grids$grid, grids$city_label, ~ mutate(.x, city_label = .y)) %>%
   bind_rows()
 
+#Read boundaries file and filter for my cities
 boundary <- st_read("Data/OS_borders/district_borough_unitary_region.shp", quiet = TRUE) %>%
   st_transform(project_crs)
 
 boundaries <- boundary %>%
   inner_join(cities %>% select(city_name, city_label), by = c("NAME" = "city_name"))
 
+#Which grid is in which boundary? By city label
 grid_cities <- st_within(grid_model_all, boundaries %>% select(city_label))
 
+#Plot function
 plot_grid <- function(city){
   city_grid     <- grid_model_all %>% filter(city_label == city)
   city_boundary <- boundaries %>% filter(city_label == city)
