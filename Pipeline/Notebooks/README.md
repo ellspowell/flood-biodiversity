@@ -1,6 +1,6 @@
 # Notebooks
 
-This directory contains the notebooks used to document, explore, model, and interpret the flood-biodiversity analysis. Rendered PDF version are available [here]() and their corresponding R Markdown (`.Rmd`) files are available in [`RMDs/`](RMDs/) for users who wish to reproduce the analysis.
+This directory contains the notebooks used to document, explore, model, and interpret the flood-biodiversity analysis. Rendered PDF version are available [here](../../README.md) and their corresponding R Markdown (`.Rmd`) files are available in [`RMDs/`](RMDs/) for users who wish to reproduce the analysis.
 
 These notebooks cover:
 
