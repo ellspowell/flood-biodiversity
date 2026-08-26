@@ -186,12 +186,12 @@ prediction_rate_simpson_byfold <- collect_metrics(
          .metric == "roc_auc")
 
 # Add city names
-city_richness <- richness_byfold %>%
+city_richness <- prediction_rate_richness_byfold %>%
   left_join(fold_city_lookup, by = "id") %>%
   select(city, .estimate) %>%
   rename(richness_auc = .estimate)
 
-city_simpson <- simpson_byfold %>%
+city_simpson <- prediction_rate_simpson_byfold %>%
   left_join(fold_city_lookup, by = "id") %>%
   select(city, .estimate) %>%
   rename(simpson_auc = .estimate)
