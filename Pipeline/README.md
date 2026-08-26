@@ -166,7 +166,7 @@ Download the data in ESRI Shapefile format and store them under:
 
 
 ## 4. Data Preparation
-Some downloads require preprocessing before running the pipeline. Use [RMD](../Pipeline/Data_Prep.Rmd) to prepare:
+Some downloads require preprocessing before running the pipeline. Use [`Data_Prep.Rmd`](Data_Prep.Rmd) to prepare:
 
 - NBN Atlas Species Data
 - Risk of Flooding from Rivers and Sease
