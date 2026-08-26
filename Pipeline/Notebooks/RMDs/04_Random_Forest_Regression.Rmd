@@ -302,7 +302,7 @@ df %>%
   select(n_days) %>%
   arrange(desc(abs(n_days)))
 ```
-`n_days` has a weak correlation with the other predictors (the highest score is 0.22) suggesting that its statistical significance is unrelated to other variables.
+`n_days` shows only weak linear correlations with the other predictors, largest correlation being 0.22. This suggests that `n_days` is not strongly linearly associated with any individual predictor and is, therefore, unlikely to be capturing the same linear information as other variables. However, this doesn't conclude that statistical significance is independent of the other predictors since more complex, non-linear relationships may exist.
 
 ### Scatter correlation 
 ```{r}
@@ -316,6 +316,7 @@ cor_plot <- GGally::ggpairs(cor_data, lower = list(continuous = GGally::wrap("po
   upper = list(continuous = GGally::wrap("cor", size = 3)),
   diag = list(continuous = GGally::wrap("densityDiag")))
 ```
+This plot shows `n_days` ia highly skewed, with most observations concentrated at relatively low values and a small number of extreme large values. Pearson's correlation coefficient is sensitive to skewed distributions and extreme observations, meaning this may not fully characterise the relationships involving `n_days`. 
 
 ### Variation by city
 ```{r}
@@ -342,13 +343,13 @@ p4 <- df %>%
 p4
 #ggsave("ndays_sp_rich.png", p4, width = 12, height = 5, dpi = 300)
 ```
-These results indicate that there is a statistically significant effect (p = 1.38e-05) where city explains 5.6% of the variance in `n_days` (R^2^ = 0.056). 
+There is a statistically significant difference in `n_days` among cities (ANOVA, p = 1.38x10-5). City accounted for approximately 5.6% of the variation in `n_days` (R^2^ = 0.056), indicating that although sampling effort differs significantly among cities, the effect size is relatively small.
 
-The `sp_richness`/`n_days` curve shows richness is associated with number of sampling days. It shows a steep increase in species detection between 0-500 days, with most of the samples clustered in this area. After 1000 days, it begins to plateau although samples become sparse here so it is unclear whether this is a true plateau. Scatter is consistently wide throughout the graph.
+The `sp_richness`/`n_days` curve suggests richness is associated with number of sampling days. It shows a steep increase in species detection between 0-500 days, with most of the samples clustered in this area. After 1000 days, it begins to plateau although samples become sparse here so there is increased uncertainty about the relationship at these values. Scatter is consistently wide throughout the graph.
 
 ### RF Model without `n_days`
 
-The model is rerun without `n_days` for comparison. 
+The model is rerun, as before, without `n_days` for comparison. 
 
 ```{r}
 predictors_nodays <- c("dtm_elev", "avg_imperv", "rofsw_risk", "rofrs_risk",
