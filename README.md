@@ -15,7 +15,7 @@ Previous research into flood risk on biodiversity has focused on rural, biodiver
 
 Therefore, this project asks the following research question:
 
-> Do the Environment Agency’s Risk of Flooding from Rivers and Sea (RoFRS) and Risk of Flooding from Surface Water (RoFSW) metrics predict biodiversity in UK cities, such as Bristol, using machine learning approaches? 
+>> Do the Environment Agency’s Risk of Flooding from Rivers and Sea (RoFRS) and Risk of Flooding from Surface Water (RoFSW) metrics predict biodiversity in UK cities, such as Bristol, using machine learning approaches? 
 
 The study covers Bristol, Exeter, Nottingham, Newcastle upon Tyne, and Gateshead. The additional cities increase the number of spatial observations available for modelling and allow model performance to be evaluated outside of Bristol.
 
