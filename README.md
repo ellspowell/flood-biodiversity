@@ -5,7 +5,7 @@ UWE MSc Data Science Individual Project looking at the impact of flooding on bio
 ## Key Findings
 
 - **Flood risk was not a dominant predictor of urban biodiversity.** Greenspace, temperature and precipitation were consistently more influential than the DEFRA Flood risk measures.
-- **Sampling effort strongly influenced apparent species richness.** Removing the sampling effort proxy reduced Random Forest OOB R^2^ from 0.606 to 0.302, highlighting a substantial sampling bias in citizen-science biodiversity data.
+- **Sampling effort strongly influenced apparent species richness.** Removing the sampling effort proxy reduced Random Forest OOB $R^{2}$ from 0.606 to 0.302, highlighting a substantial sampling bias in citizen-science biodiversity data.
 - **XGBoost was the strongest performing model for species richness** in this project based on mean ROC AUC (0.706), but performance varied across unseen cities. 
 
 ## Project Overview 
