@@ -86,7 +86,7 @@ This notebook is primarily intended as documentation of the full data-processing
 
 ---
 
-## [02 — Exploratory Data Analysis](02_Exploratory_Data_Analysis.pdf)
+## [02 — Exploratory Data Analysis](RMDs/02_Exploratory_Data_Analysis.Rmd)
 
 This notebook explores the final grid-level modelling dataset produced by the pipeline.
 
@@ -111,7 +111,7 @@ Data/OS_borders/
 
 ---
 
-## [03 — Diversity Indices](03_Diversity_Indices.pdf)
+## [03 — Diversity Indices](RMDs/03_Diversity_Indices.Rmd)
 
 This notebook summarises and evaluates the statistical models used to investigate relationships between environmental variables, flood risk, and biodiversity.
 
@@ -131,7 +131,7 @@ Data/simpson_models.rds
 
 ---
 
-## [04 — Random Forest Regression](04_Random_Forest_Regression.pdf)
+## [04 — Random Forest Regression](RMDs/04_Random_Forest_Regression.Rmd)
 
 This notebook uses Random Forest regression to model:
 
@@ -160,7 +160,7 @@ Data/grid_model.gpkg
 
 ---
 
-## [05 — Random Forest Classification](05_Random_Forest_Classification.pdf)
+## [05 — Random Forest Classification](RMDs/05_Random_Forest_Classification.Rmd)
 
 For comparison with classification approaches used in the existing literature, species richness and Simpson diversity are converted into binary **high** and **low** classes using a median split.
 
@@ -174,7 +174,7 @@ Data/grid_model.gpkg
 
 ---
 
-## [06 — Random Forest Classification Without Sampling Effort](06_Random_Forest_NoDays.pdf)
+## [06 — Random Forest Classification Without Sampling Effort](RMDs/06_Random_Forest_NoDays.Rmd)
 
 This notebook extends the Random Forest classification analysis from Notebook 05 by removing `n_days` from the predictor set.
 
@@ -188,7 +188,7 @@ Data/grid_model.gpkg
 
 ---
 
-## [07 — Extreme Gradient Boosting](07_eXtreme_Gradient_Boosting.pdf)
+## [07 — Extreme Gradient Boosting](RMDs/07_eXtreme_Gradient_Boosting.Rmd)
 
 This notebook fits Extreme Gradient Boosting (XGBoost) models for species richness and Simpson diversity. The models use the `tidymodels` recipe and workflow framework to maintain a consistent modelling approach across the machine-learning analyses. Hyperparameter tuning is performed using a Latin hypercube design, allowing a wide range of parameter combinations to be evaluated efficiently.
 
@@ -207,7 +207,7 @@ Data/grid_model.gpkg
 
 ---
 
-## 08 — SHapley Additive exPlanations (SHAP)
+## 08 — [SHapley Additive exPlanations (SHAP)](RMDs/08_SHapley_Additive_exPlanations.Rmd)
 
 This notebook uses SHAP values to interpret the species richness Random Forest and XGBoost models fitted without `n_days`. The Random Forest model is interpreted using `kernelshap`, while the XGBoost model uses TreeSHAP. Both analyses explain the predicted probability of high species richness.
 
@@ -250,14 +250,6 @@ Pipeline/
 │
 └── Notebooks/
     ├── README.md
-    ├── 01_Pipeline.pdf
-    ├── 02_Exploratory_Data_Analysis.pdf
-    ├── 03_Diversity_Indices.pdf
-    ├── 04_Random_Forest_Regression.pdf
-    ├── 05_Random_Forest_Classification.pdf
-    ├── 06_Random_Forest_NoDays.pdf
-    ├── 07_eXtreme_Gradient_Boosting.pdf
-    ├── 08_SHapley_Additive_exPlanations.pdf
     └── RMDs/
         ├── 01_Pipeline.Rmd
         ├── 02_Exploratory_Data_Analysis.Rmd
