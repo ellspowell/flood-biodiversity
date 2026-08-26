@@ -69,7 +69,7 @@ Two approaches can be taken when replicating this analysis:
 
 1. Sampling bias - the data used in this project is observational so more frequently surveyed areas have more opportunity for species to be recorded. The importance of `n_days` demonstrates this and its removal doesn't correct the underlying bias. Future work should include means to mitigate this bias, such as rarefraction and extrapolation techniques (Chao *et al*, 2014). 
 2. Observation counts are not true abundance which could explain why Simpson diversity was consistently less predictable than species richness.
-3. Spatial resolution and data availability constrained the project. The 1km^2^ grid resolution was a compromise between fine spatial resolution and each grid cell having enough species observation records to calculate species diversity indices. 
+3. Spatial resolution and data availability constrained the project. The $1km^{2}$ grid resolution was a compromise between fine spatial resolution and each grid cell having enough species observation records to calculate species diversity indices. 
 
 ### References
 - Ebrahimi, E., Araujo, M.B., and Naimi, B. (2023) Flood susceptibility mapping to improve models of species distributions. Ecological Indicators [online] 157 [Accessed 17 February 2026]
