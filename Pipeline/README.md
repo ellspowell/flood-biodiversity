@@ -1,13 +1,13 @@
 # Pipeline Guide
 
-This directory contains the data-processing and modelling pipeline for the flood and biodiversity analysis.
+This guide contains the data-processing and modelling pipeline for the flood and biodiversity analysis.
 
 There are two ways to reproduce this project:
 
-1. Reproduce the statistical analysis using the pipeline generated datasets. Information on this can be found [here](../Notebooks/README.md).
+1. Reproduce the statistical analysis using the pipeline generated datasets. Information on this can be found [here](Notebooks/README.md).
 2. Rebuild the datasets from the original source data. This requires downloading large datasets and running the full `targets` pipeline.
 
-Option one is recommended for users who want to reproduce the project results. For information on how the pipeline is built visit this [notebook](../Notebooks/01_Pipeline.pdf).
+Option one is recommended for users who want to reproduce the project results. For information on how the pipeline is built visit this [notebook](../01_Pipeline.pdf).
 
 # Rerunning the pipeline
 
@@ -64,7 +64,7 @@ Species occurrence data was obtained from the NBN Atlas. Data can be downloaded 
 
 Records can be filtered by variables such as record type, species group, and year. Large searches may need to be downloaded in multiple parts.
 
-The downloaded occurrence datasets were then processed and combined using [`Data_Prep.Rmd`](../Pipeline/Data_Prep.Rmd) to produce: 
+The downloaded occurrence datasets were then processed and combined using [`Data_Prep.Rmd`](Data_Prep.Rmd) to produce: 
 
 `Data/Species_Data.csv`
 
@@ -103,7 +103,7 @@ The pipeline expects the resulting dataset at:
 ### Risk of Flooding from Surface Water
 Download the Environment Agency Risk of Flooding from Surface Water data for each study area in ESRI Shapefile format.
 
-The separate downloads are processed and combined using [`Data_Prep.Rmd`](../Pipeline/Data_Prep.Rmd).
+The separate downloads are processed and combined using [`Data_Prep.Rmd`](Data_Prep.Rmd).
 
 The pipeline expects:
 
@@ -135,7 +135,7 @@ Download the appropriate Trees Outside Woodland layer for each study area.
 
 For example, the South West layer covers Bristol and Exeter.
 
-The separate datasets are processed and combined using [`Data_Prep.Rmd`](../Pipeline/Data_Prep.Rmd).
+The separate datasets are processed and combined using [`Data_Prep.Rmd`](Data_Prep.Rmd).
 
 The resulting dataset is expected under:
 
