@@ -23,10 +23,10 @@ library(dplyr)
 set.seed(399)
 ```
 
-As seen in the Random Forest models, `n_days` is dominant predictor. For species richness, the full model has an excellent ROC AUC (0.956) dropping to 0.706 in the ND model (no `n_days`) which is weaker but moderately useable. However, Simpson diversity models are both weaker. The full model has a moderate ROC AUC of 0.712, dropping to a much weaker 0.662 in the ND model.
+As seen in the Random Forest models, `n_days` is dominant predictor. For species richness, the full model has an ROC AUC of 0.956 dropping to 0.706 in the ND model (no `n_days`). The full Simpson model has an ROC AUC of 0.712, dropping to 0.662 in the ND model.
 City level breakdown shows consistency between cities in the full richness model (ROC AUC ranging from 0.981-0.920), whereas the ND richness model has more variabilty (0.795-0.648). This suggests that without the dominant predictor, `n_days`, the model does not generalise to unseen cities as well. Both Simpson models also see greater variation in their ROC AUC scores: full (0.810-0.674) and ND (0.728-0.605). 
-Comparison of the success rate vs prediction rate AUC in final full richness model shows a small decrease (success 0.985 vs prediction 0.956) suggesting the model fits the training data well and can predict unseen data well. However, when removing `n_days` there is a bigger gap (success 0.835 vs prediction 0.706) suggesting more overfitting now the model has to rely on weaker, potentially noisier, signals. Both the Simpson models have larger gaps: full (success 0.792 vs prediction 0.712) and ND (success 0.722 vs prediction 0.662).  
-However, removing `n_days` highlights `weighted_temp`, `pct_greenspace`, and `weighted_precip` are drivers of richness diversity. `pct_greenspace` and `avg_area_ha` are top drivers of Simpson diversity. This is in agreement with the previous Random Forest results. Despite having lower AUC scores, the ND models are more meaningful when interpreting the ecological drivers of biodiversity.
+Comparison of the success rate vs prediction rate AUC in final full richness model shows a small decrease (success 0.985 vs prediction 0.956) suggesting the model fits the training data well and can predict unseen data well. However, when removing `n_days` there is a bigger gap (success 0.835 vs prediction 0.706) suggesting more overfitting now the model has to rely on weaker, potentially noisier, signals. Both the Simpson models have large gaps: full (success 0.792 vs prediction 0.712) and ND (success 0.722 vs prediction 0.662).  
+However, removing `n_days` highlights `weighted_temp`, `pct_greenspace`, and `weighted_precip` are drivers of richness diversity. `pct_greenspace` and `avg_area_ha` are top drivers of Simpson diversity. This is in agreement with the previous Random Forest results.
  
 ## Load Data
 ```{r message=FALSE}
@@ -50,15 +50,17 @@ df <- grid_model_all %>%
 ```
 
 ```{r}
+# Adjust Simpson Scores
 n <- nrow(df)
 df$simpson_adj <- (df$simpson * (n - 1) + 0.5) / n
 
+# Set predictors
 predictors <- c("n_days", "dtm_elev", "avg_imperv", "rofsw_risk", "rofrs_risk",
                 "avg_area_ha", "treeht", "weighted_precip", "weighted_temp",
                 "dist_to_river", "pct_greenspace")
 ```
 
-## Model Setup
+## Classification and CV Fold Setup
 ```{r}
 #Classification
 
@@ -71,6 +73,17 @@ df <- df %>%
                                     "high", "low"),
                             levels = c("low", "high")))
 
+
+#Cross-validation folds
+folds <- group_vfold_cv(df, group = city)
+
+fold_city_lookup <- folds %>%
+  mutate(city = purrr::map_chr(splits, ~ as.character(unique(assessment(.x)$city)))) %>%
+  select(id, city)
+```
+
+### Model Specification and Recipe
+```{r}
 #XGBoost Specification
 
 xgb_spec_class <- boost_tree(
@@ -84,20 +97,17 @@ xgb_spec_class <- boost_tree(
   set_engine("xgboost") %>%
   set_mode("classification")
 
-#Cross-validation folds
-folds <- group_vfold_cv(df, group = city)
-
-fold_city_lookup <- folds %>%
-  mutate(city = purrr::map_chr(splits, ~ as.character(unique(assessment(.x)$city)))) %>%
-  select(id, city)
-
 #Recipes and workflows
 richness_recipe_xgb <- recipe(
   as.formula(paste("richness_class ~", paste(predictors, collapse = " + "))),
   data = df) %>%
+  # replace missing values with "unknown" 
   step_unknown(all_nominal_predictors()) %>%
+  # remove observations missing numerical predictors 
   step_naomit(all_numeric_predictors(), all_outcomes()) %>%
+  # allow previously unseen categorical levels in new data
   step_novel(all_nominal_predictors()) %>%
+  # convert categorical predictors into dummy variables 
   step_dummy(all_nominal_predictors())
  
 richness_wf_xgb <- workflow() %>%
@@ -121,15 +131,17 @@ simpson_wf_xgb <- workflow() %>%
 ## Tuning Setup
 ```{r}
 xgb_grid <- grid_space_filling(
-  trees(range = c(100, 1000)),
-  tree_depth(range = c(2, 8)),
-  learn_rate(range = c(-3, -0.5)),   # log10 scale: 0.001 - 0.316
-  loss_reduction(range = c(-5, 1.5)),
-  finalize(mtry(range = c(2, 8)), df[, predictors]),
-  min_n(range = c(2, 15)),
-  sample_prop(range = c(0.5, 1.0)),
+  trees(range = c(100, 1000)), # Number of boosting trees
+  tree_depth(range = c(2, 8)), # Max depth of each tree
+  learn_rate(range = c(-3, -0.5)),   # Learning rate, log10 scale 
+  loss_reduction(range = c(-5, 1.5)), # Min improvement for further tree split (also log10 scale)
+  finalize(mtry(range = c(2, 8)), df[, predictors]), # Number of predictors at each split, finalised based on number of predictors
+  min_n(range = c(2, 15)), # Min obs at each node
+  sample_prop(range = c(0.5, 1.0)), # Proportion of training observations
   size = 30,
-  type = "latin_hypercube")
+  type = "latin_hypercube") # 30 combos using latin hypercube sampling
+
+#Latin hypercube sampling used for efficient, equal parameter testing without testing every possibility.
 ```
 
 ## Hyperparameter Tuning
@@ -174,53 +186,65 @@ best_simpson_xgb  <- select_best(simpson_res_xgb,  metric = "roc_auc")
 
 ## Prediction Rate AUC
 ```{r}
+# Get overall mean ROC AUC for richness and Simpson
 overall_richness_xgb <- collect_metrics(richness_res_xgb) %>%
-  filter(mtry == best_richness_xgb$mtry, min_n == best_richness_xgb$min_n,
-         tree_depth == best_richness_xgb$tree_depth,
-         learn_rate == best_richness_xgb$learn_rate,
-         .metric == "roc_auc") %>%
+  filter(.metric == "roc_auc") %>%
+  semi_join(
+    best_richness_xgb,
+    by = names(best_richness_xgb)) %>%
   pull(mean)
 
 overall_simpson_xgb <- collect_metrics(simpson_res_xgb) %>%
-  filter(mtry == best_simpson_xgb$mtry, min_n == best_simpson_xgb$min_n,
-         tree_depth == best_simpson_xgb$tree_depth,
-         learn_rate == best_simpson_xgb$learn_rate,
-         .metric == "roc_auc") %>%
+  filter(.metric == "roc_auc") %>%
+  semi_join(
+    best_simpson_xgb,
+    by = names(best_simpson_xgb)) %>%
   pull(mean)
 
-city_richness_xgb <- collect_metrics(richness_res_xgb, summarize = FALSE) %>%
-  filter(mtry == best_richness_xgb$mtry, min_n == best_richness_xgb$min_n,
-         tree_depth == best_richness_xgb$tree_depth,
-         learn_rate == best_richness_xgb$learn_rate,
-         .metric == "roc_auc") %>%
+# Get city based ROC AUC scores (by fold, then attach city name)
+city_richness_xgb <- collect_metrics(
+  richness_res_xgb,
+  summarize = FALSE) %>%
+  filter(.metric == "roc_auc") %>%
+  semi_join(
+    best_richness_xgb,
+    by = names(best_richness_xgb)) %>%
   left_join(fold_city_lookup, by = "id") %>%
-  select(city, .estimate) %>%
-  rename(richness_auc = .estimate)
+  select(city, richness_auc = .estimate)
 
-city_simpson_xgb <- collect_metrics(simpson_res_xgb, summarize = FALSE) %>%
-  filter(mtry == best_simpson_xgb$mtry, min_n == best_simpson_xgb$min_n,
-         tree_depth == best_simpson_xgb$tree_depth,
-         learn_rate == best_simpson_xgb$learn_rate,
-         .metric == "roc_auc") %>%
+city_simpson_xgb <- collect_metrics(
+  simpson_res_xgb,
+  summarize = FALSE) %>%
+  filter(.metric == "roc_auc") %>%
+  semi_join(
+    best_simpson_xgb,
+    by = names(best_simpson_xgb)) %>%
   left_join(fold_city_lookup, by = "id") %>%
-  select(city, .estimate) %>%
-  rename(simpson_auc = .estimate)
+  select(city, simpson_auc = .estimate)
 
-city_auc_xgb <- city_richness_xgb %>% full_join(city_simpson_xgb, by = "city")
+# Combine richness and Simpson city scores
+city_auc_xgb <- full_join(city_richness_xgb, city_simpson_xgb,
+                          by = "city")
 
+# Create row for overall score
 overall_auc_xgb <- tibble(city = "Overall",
-                           richness_auc = overall_richness_xgb,
-                           simpson_auc  = overall_simpson_xgb)
+  richness_auc = overall_richness_xgb,
+  simpson_auc = overall_simpson_xgb)
 
-classification_auc_table_xgb <- bind_rows(overall_auc_xgb, city_auc_xgb) %>%
+# Combine and create table
+classification_auc_table_xgb <- bind_rows(
+  overall_auc_xgb,city_auc_xgb) %>%
   mutate(across(where(is.numeric), ~ round(.x, 3))) %>%
-  rename("City (Held-Out)" = city,
-         "Richness ROC AUC" = richness_auc,
-         "Simpson ROC AUC"  = simpson_auc)
+  rename(
+    "City (Held-Out)" = city,
+    "Richness ROC AUC" = richness_auc,
+    "Simpson ROC AUC" = simpson_auc)
 
 classification_auc_table_xgb %>%
-  knitr::kable(caption = "Overall and city-level cross-validated ROC AUC for 
-               species richness and Simpson diversity (XGBoost)")
+  knitr::kable(
+    caption = paste(
+      "Overall and city-level cross-validated ROC AUC for",
+      "species richness and Simpson diversity (XGBoost)"))
 ```
 
 ## Final Model
@@ -259,8 +283,7 @@ tibble::tibble(
   Outcome = c("Species richness", "Simpson diversity"),
   `Success rate AUC` = c(success_rate_richness_xgb$.estimate,
                           success_rate_simpson_xgb$.estimate),
-  `Prediction rate AUC` = c(overall_richness_xgb, overall_simpson_xgb)
-) %>%
+  `Prediction rate AUC` = c(overall_richness_xgb, overall_simpson_xgb)) %>%
   mutate(across(where(is.numeric), ~ round(.x, 3))) %>%
   knitr::kable(caption = "XGBoost classification performance: 
                success rate vs. prediction rate AUC")
@@ -293,11 +316,12 @@ simpson_fit_xgb %>%
 
 ## Set up and tuning 
 ```{r}
-
+# Set new predictors without `n_days`
 predictors_ND <- c("dtm_elev", "avg_imperv", "rofsw_risk", "rofrs_risk",
                 "avg_area_ha", "treeht", "weighted_precip", "weighted_temp",
                 "dist_to_river", "pct_greenspace")
-#Recipes and workflows
+
+#Recipes and workflows, as before.
 richness_recipe_xgb_ND <- recipe(
   as.formula(paste("richness_class ~", paste(predictors_ND, collapse = " + "))),
   data = df) %>%
@@ -362,36 +386,34 @@ best_simpson_xgb_ND  <- select_best(simpson_res_xgb_ND,  metric = "roc_auc")
 ## Prediction Rate AUC
 ```{r}
 overall_richness_xgb_ND <- collect_metrics(richness_res_xgb_ND) %>%
-  filter(mtry == best_richness_xgb_ND$mtry, min_n == best_richness_xgb_ND$min_n,
-         tree_depth == best_richness_xgb_ND$tree_depth,
-         learn_rate == best_richness_xgb_ND$learn_rate,
-         .metric == "roc_auc") %>%
+  filter(.metric == "roc_auc") %>%
+  semi_join(best_richness_xgb_ND, 
+            by = names(best_richness_xgb_ND)) %>%
   pull(mean)
 
 overall_simpson_xgb_ND <- collect_metrics(simpson_res_xgb_ND) %>%
-  filter(mtry == best_simpson_xgb_ND$mtry, min_n == best_simpson_xgb_ND$min_n,
-         tree_depth == best_simpson_xgb_ND$tree_depth,
-         learn_rate == best_simpson_xgb_ND$learn_rate,
-         .metric == "roc_auc") %>%
+  filter(.metric == "roc_auc") %>%
+  semi_join(best_simpson_xgb_ND, 
+            by = names(best_simpson_xgb_ND)) %>%
   pull(mean)
 
-city_richness_xgb_ND <- collect_metrics(richness_res_xgb_ND, summarize = FALSE) %>%
-  filter(mtry == best_richness_xgb_ND$mtry, min_n == best_richness_xgb_ND$min_n,
-         tree_depth == best_richness_xgb_ND$tree_depth,
-         learn_rate == best_richness_xgb_ND$learn_rate,
-         .metric == "roc_auc") %>%
+city_richness_xgb_ND <- collect_metrics(
+  richness_res_xgb_ND,
+  summarize = FALSE) %>%
+  filter(.metric == "roc_auc") %>%
+  semi_join(best_richness_xgb_ND, 
+            by = names(best_richness_xgb_ND)) %>%
   left_join(fold_city_lookup, by = "id") %>%
-  select(city, .estimate) %>%
-  rename(richness_auc = .estimate)
+  select(city, richness_auc = .estimate)
 
-city_simpson_xgb_ND <- collect_metrics(simpson_res_xgb_ND, summarize = FALSE) %>%
-  filter(mtry == best_simpson_xgb_ND$mtry, min_n == best_simpson_xgb_ND$min_n,
-         tree_depth == best_simpson_xgb_ND$tree_depth,
-         learn_rate == best_simpson_xgb_ND$learn_rate,
-         .metric == "roc_auc") %>%
+city_simpson_xgb_ND <- collect_metrics(
+  simpson_res_xgb_ND,
+  summarize = FALSE) %>%
+  filter(.metric == "roc_auc") %>%
+  semi_join(best_simpson_xgb_ND, 
+            by = names(best_simpson_xgb_ND)) %>%
   left_join(fold_city_lookup, by = "id") %>%
-  select(city, .estimate) %>%
-  rename(simpson_auc = .estimate)
+  select(city, simpson_auc = .estimate)
 
 city_auc_xgb_ND <- city_richness_xgb_ND %>% full_join(city_simpson_xgb_ND, by = "city")
 
