@@ -160,17 +160,18 @@ best_richness_class <- select_best(richness_res_class, metric = "roc_auc")
 best_simpson_class <- select_best(simpson_res_class, metric = "roc_auc")
 
 # Overall mean ROC AUC
-overall_richness <- collect_metrics(richness_res_class) %>%
+overall_richness_metrics <- collect_metrics(richness_res_class) %>%
   filter(mtry == best_richness_class$mtry,
          min_n == best_richness_class$min_n,
-         .metric == "roc_auc") %>%
-  pull(mean)
+         .metric == "roc_auc") 
 
-overall_simpson <- collect_metrics(simpson_res_class) %>%
+overall_simpson_metrics <- collect_metrics(simpson_res_class) %>%
   filter(mtry == best_simpson_class$mtry,
          min_n == best_simpson_class$min_n,
-         .metric == "roc_auc") %>%
-  pull(mean)
+         .metric == "roc_auc") 
+
+overall_richness <- overall_richness_metrics$mean
+overall_simpson <- overall_simpson_metrics$mean
 
 # ROC AUC by fold (city)
 prediction_rate_richness_byfold <- collect_metrics(
@@ -215,7 +216,7 @@ classification_auc_table %>%
     caption = "Overall and city-level cross-validated ROC AUC for species 
     richness and Simpson diversity")
 
-# Check for any folds where AUC couldn't be computed (single-class fold)
+# Check for any folds where AUC couldn't be computed 
 richness_na_folds <- prediction_rate_richness_byfold %>%
   filter(is.na(.estimate))
 
@@ -271,12 +272,12 @@ roc_curve(simpson_success,
 ```{r}
 tibble::tibble(
   Outcome = c("Species richness", "Simpson diversity"),
-  `Success rate AUC (in-sample)` = c(success_rate_richness$.estimate,
-                                     success_rate_simpson$.estimate),
-  `Prediction rate AUC (cross-city)` = c(prediction_rate_richness$mean,
-                                                  prediction_rate_simpson$mean),
-  `Prediction rate SE` = c(prediction_rate_richness$std_err,
-                           prediction_rate_simpson$std_err)
+  `Success rate AUC` = c(success_rate_richness$.estimate,
+                         success_rate_simpson$.estimate),
+  `Prediction rate AUC` = c(overall_richness,
+                            overall_simpson),
+  `Prediction rate SE` = c(overall_richness_metrics$std_err,
+                           overall_simpson_metrics$std_err)
 ) %>%
   mutate(across(where(is.numeric), ~ round(.x, 3))) %>%
   knitr::kable(caption = "Random forest classification performance: 
