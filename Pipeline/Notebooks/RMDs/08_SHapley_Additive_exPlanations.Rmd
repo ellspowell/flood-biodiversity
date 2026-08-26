@@ -13,8 +13,10 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## SHapley Additive exPlanations (SHAP)
 
-SHAP values were used to interpret two classification models predicting species richness ("high" or "low"): a random forest, using `kernelshap`, and an XGBoost model using TreeSHAP. Both models were configured to explain predicted probability of "high" richness. 
+SHAP values were used to interpret two classification models predicting species richness ("high" or "low"): a random forest, using `kernelshap`, and an XGBoost model using TreeSHAP. Both models were configured to explain predicted "high" richness. 
 Because the XGBoost's categorical predictors (ROFSW and ROFRS) were one-hot encoded during preprocessing, these were aggregated back into their original variables. This was to ensure fair, feature-for-feature comparison between models.
+
+SHAP values for the RF are expressed on the probability scale, whereas XGBoost SHAP values are on the model’s log-odds scale. Their values, therefore, shouldn’t be directly compared but comparisons between relative feature importance and direction of effect can be made.
 
 ```{r message=FALSE}
 library(sf)
@@ -73,15 +75,13 @@ rfcombined <- p1 + p2
 #ggsave("rf_shap.png", rfcombined, width = 12, height = 5, dpi = 300)
 p1
 ```
-This bar chart displays the SHAP values for the RF model, where the higher the SHAP value the greater the influence that predictor has on predicting "high" richness. `pct_greenspace` is by far the most important predictor in this model, followed by `weighted_temp` and `weighted_precip`. Neither `ROFSW_risk` or `ROFRS_risk` are highly important in this model, but do provide some benefit.
+This bar chart displays the SHAP values for the RF model, where the higher the SHAP value the greater the influence that predictor has on pushing the model towards predicting "high" richness. `pct_greenspace` is by far the most important predictor in this model, followed by `weighted_temp` and `weighted_precip`. Neither `ROFSW_risk` or `ROFRS_risk` are highly important in this model, but do provide some benefit.
 
 ```{r message=FALSE}
 p2
 ```
 This beeswarm plot not only shows the importance of each predictor but also the direction of its effect and the associated feature value. 
-For `pct_greenspace`, low values are spread evenly across both negative and positive SHAP values, while high values cluster almost entirely on the right with positive SHAP values. This indicates high greenspace strongly increases the predicted probability of high richness.
-`weighted_temp` shows a similar pattern where low to medium temperatures are associated with probability of low richness, while high temperatures cluster with positive SHAP values. Low precipitation shows the same relationship with low richness. 
-Although ROFSW has a smaller impact on the overall model, there is a clear split where low ROFSW risk clusters at negative SHAP values and high ROFSW with positive SHAP values.
+For `pct_greenspace`, low values spread evenly across positive and negative SHAP values, while high values cluster on the positive side. This indicates high greenspace strongly increases the model prediction to high richness. `weighted_temp` showed a similar pattern, with high temperatures clustering positively and low-to-medium temperatures associated with low richness. The same relationship is seen for precipitation. Although smaller in overall impact, RoFSW showed a clear split, with low-risk clustering negatively and high-risk positively.
 
 ## XGBoost
 Because of the dummy step in the XGBoost model, a bake step is introduced to ensure the data is processed in the same way the model was. However, `kernelshap` is not needed here since the XGBoost package has TreeSHAP built in, which `shapviz` can use. 
@@ -155,7 +155,7 @@ As seen in the RF model, the top feature is `pct_greenspace`, followed by `weigh
 ```{r message=FALSE}
 p4
 ```
-This beeswarm plot shows that the two models largely agree on both the important predictors and the direction of their effects. As in the RF model, `pct_greenspace` shows an even spread of low values but a clear cluster of high values with positive SHAP values. Both `weighted_temp` and `weighted_precip` again show higher values are associated with a higher predicted proabability of high richness. ROFSW risk shows the same pattern seen in the RF model, with low risk associated with probability of low richness and vice versa.
+This beeswarm plot shows that the two models largely agree on both the important predictors and the direction of their effects. As in the RF model, `pct_greenspace` shows an even spread of low values but a clear cluster of high values with positive SHAP values. Both `weighted_temp` and `weighted_precip` again show higher values are associated with a higher likelihood of high richness being predicted. ROFSW risk shows the same pattern seen in the RF model.
 
 ### Precipitation and Temperature
 ```{r message=FALSE}
@@ -167,7 +167,7 @@ p5
 p6
 #ggsave("precip_temp_shap.png", precip_temp, width = 12, height = 5, dpi = 300)
 ```
-Since these two variables are correlated, a dependence plot was generated to examine their combined effect. Low temperature combined with low precipitation is associated with a predicted probability of low richness, whilst high values are associated with a predicted probability of high. This relationship isn't linear and their appears to be a threshold that must be crossed before the prediction shifts from low to high richness. 
+Since these two variables are correlated, a dependence plot was generated to examine their combined effect. Low temperature combined with low precipitation is associated with the model predicting low richness, whilst high values are associated with a predicted high richness. This relationship isn't linear and their appears to be a threshold that must be crossed before the prediction shifts from low to high richness. 
 
 ### Elevation vs Distance to River
 ```{r message=FALSE}
@@ -179,4 +179,4 @@ p7
 p8
 #ggsave("elevation_v_river_shap.png", elevation_river, width = 12, height = 5, dpi = 300)
 ```
-These dependence plots shows a more linear relationship between elevation and distance to the nearest river. Proximity to a river is associated with lower elevation and higher SHAP values, indicating a higher predicted probability of high richness at low elevations, near rivers. 
+These dependence plots shows a more linear relationship between elevation and distance to the nearest river. Proximity to a river is associated with lower elevation and higher SHAP values, indicating a higher likelihood that high richness is predicted at low elevations, near rivers. 
