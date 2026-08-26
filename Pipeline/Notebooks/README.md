@@ -1,6 +1,6 @@
 # Notebooks
 
-This directory contains the notebooks used to document, explore, model, and interpret the flood-biodiversity analysis. Rendered PDF version are available and their corresponding R Markdown (`.Rmd`) files are available in [`RMDs/`](RMDs/) for users who wish to reproduce the analysis.
+This directory contains the notebooks used to document, explore, model, and interpret the flood-biodiversity analysis. Rendered PDF version are available [here]() and their corresponding R Markdown (`.Rmd`) files are available in [`RMDs/`](RMDs/) for users who wish to reproduce the analysis.
 
 These notebooks cover:
 
@@ -78,7 +78,7 @@ This installs the R package versions recorded for the project. Individual notebo
 
 ---
 
-## [01 — Pipeline](01_Pipeline.pdf)
+## [01 — Pipeline](/RMDs/01_Pipeline.Rmd)
 
 This notebook describes the structure of the `targets` pipeline used to construct the analysis datasets. It covers the main stages of the pipeline, functions, dependencies, and useful commands for inspecting and running the workflow.
 
