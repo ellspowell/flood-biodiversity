@@ -12,6 +12,7 @@ These notebooks cover:
 6. Random Forest classification without the sampling-effort proxy
 7. Extreme Gradient Boosting (XGBoost)
 8. SHAP model interpretation
+9. Flood risk predictor analysis
 
 The complete pipeline can also be used to reconstruct these datasets from the original environmental and biodiversity sources. However, the original source datasets require substantial storage and computation and are therefore not distributed through GitHub.
 
@@ -232,6 +233,22 @@ Data/richness_recipe_xgb_ND.rds
 ```
 ---
 
+## [09 Flood Risk](RMDs/09_Flood_Risk.Rmd)
+This notebook runs a Random Forest, XGBoost, and SHAP for species richness without the flood risk factors: Risk of Flooding from Rivers and Sea (RoFRS) and Risk of Flooding from Surface Water (RoFSW). This notebook intends to provide evidence for or against the use of these flood risk indicators in these models. 
+
+Model interpretation includes:
+
+- Mean ROC AUC
+- Success-rate versus prediction-rate AUC
+- SHAP feature importance
+- SHAP beeswarm plots
+
+### Data required
+```text
+Data/grid_model.gpkg
+```
+---
+
 # Expected file structure
 
 The notebooks are designed to use the following directory structure:
@@ -259,6 +276,7 @@ Pipeline/
         ├── 06_Random_Forest_NoDays.Rmd
         ├── 07_eXtreme_Gradient_Boosting.Rmd
         ├── 08_SHapley_Additive_exPlanations.Rmd
+        ├── 09_Flood_Risk.Rmd
         │
         └── Data/
             ├── grid_1km_Bristol.gpkg
