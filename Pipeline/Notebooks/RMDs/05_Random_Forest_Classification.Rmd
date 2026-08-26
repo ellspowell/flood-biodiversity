@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Random Forest : Classification
 
-For comparison with current literature, below I run the richness and Simpson random forest models using classification over regression. The richness and Simpson diversity indices are split based on median, creating two diversity labels: "high" and "low". This mirrors the approach taken by recent studies in which two groups of samples are matched, e.g. 500 "flood" and 500 "no flood" samples. 
+For comparison with current classification literature, below I run the richness and Simpson random forest models using classification over regression. The richness and Simpson diversity indices are split based on median, creating two diversity labels: "high" and "low". This mirrors the approach taken by recent studies in which two groups of samples are matched, e.g. 500 "flood" and 500 "no flood" samples. 
 
 ```{r message=FALSE}
 library(targets)
@@ -27,7 +27,7 @@ set.seed(399)
 ```
 
 ## Load Data
-Read in the final grid model and transform the simpson scores. This isn't strictly necessary for Random Forest but allows for direct comparison with the beta regression model.
+Read in the final grid model and transform the Simpson scores. This isn't strictly necessary for Random Forest but allows for direct comparison with the beta regression model.
 ```{r message=FALSE}
 # Uncomment if using pipeline data: 
 
@@ -150,21 +150,29 @@ show_best(simpson_res_class, metric = "roc_auc", n = 5) %>%
 best_richness_class <- select_best(richness_res_class, metric = "roc_auc")
 best_simpson_class  <- select_best(simpson_res_class,  metric = "roc_auc")
 ```
-The richness model has a best ROC AUC of 0.951, and performance is stable across the grid. This suggests that the model is not highly sensitive to tuning. However, the simpson model is noticably weaker (ROC AUC = 0.710) and more variablility between tuning models. This suggests that the richness model classifies better than the simpson diversity using these predictor variables.
+The richness model has a best ROC AUC of 0.951, and performance is stable across the grid. This suggests that the model is not highly sensitive to tuning. The Simpson model has an ROC AUC of 0.710 and variablility between tuning models. This suggests that the richness model classifies better than the simpson diversity using these predictor variables.
 
 ### Prediction Rate AUC
 This looks at the mean AUC across held-out city folds, and individual fold's AUC scores.
 ```{r}
-prediction_rate_richness <- collect_metrics(richness_res_class) %>%
+# Select best tuning parameters
+best_richness_class <- select_best(richness_res_class, metric = "roc_auc")
+best_simpson_class <- select_best(simpson_res_class, metric = "roc_auc")
+
+# Overall mean ROC AUC
+overall_richness <- collect_metrics(richness_res_class) %>%
   filter(mtry == best_richness_class$mtry,
          min_n == best_richness_class$min_n,
-         .metric == "roc_auc")
+         .metric == "roc_auc") %>%
+  pull(mean)
 
-prediction_rate_simpson <- collect_metrics(simpson_res_class) %>%
+overall_simpson <- collect_metrics(simpson_res_class) %>%
   filter(mtry == best_simpson_class$mtry,
          min_n == best_simpson_class$min_n,
-         .metric == "roc_auc")
+         .metric == "roc_auc") %>%
+  pull(mean)
 
+# ROC AUC by fold (city)
 prediction_rate_richness_byfold <- collect_metrics(
   richness_res_class, summarize = FALSE) %>%
   filter(mtry == best_richness_class$mtry,
@@ -177,52 +185,21 @@ prediction_rate_simpson_byfold <- collect_metrics(
          min_n == best_simpson_class$min_n,
          .metric == "roc_auc")
 
-overall_richness <- collect_metrics(richness_res_class) %>%
-  filter(mtry == best_richness_class$mtry,
-         min_n == best_richness_class$min_n,
-         .metric == "roc_auc") %>%
-  pull(mean)
-
-overall_simpson <- collect_metrics(simpson_res_class) %>%
-  filter(mtry == best_simpson_class$mtry,
-         min_n == best_simpson_class$min_n,
-         .metric == "roc_auc") %>%
-  pull(mean)
-
-best_richness_class <- select_best(richness_res_class, metric = "roc_auc")
-
-best_simpson_class <- select_best(simpson_res_class, metric = "roc_auc")
-
-overall_richness <- collect_metrics(richness_res_class) %>%
-  filter(mtry == best_richness_class$mtry, 
-         min_n == best_richness_class$min_n, 
-         .metric == "roc_auc") %>%
-  pull(mean)
-
-overall_simpson <- collect_metrics(simpson_res_class) %>%
-  filter(mtry == best_simpson_class$mtry, 
-         min_n == best_simpson_class$min_n, 
-         .metric == "roc_auc") %>%
-  pull(mean)
-
-city_richness <- collect_metrics(richness_res_class, summarize = FALSE) %>%
-  filter(mtry == best_richness_class$mtry, 
-         min_n == best_richness_class$min_n, 
-         .metric == "roc_auc") %>%
+# Add city names
+city_richness <- richness_byfold %>%
   left_join(fold_city_lookup, by = "id") %>%
   select(city, .estimate) %>%
   rename(richness_auc = .estimate)
 
-city_simpson <- collect_metrics(simpson_res_class, summarize = FALSE) %>%
-  filter(mtry == best_simpson_class$mtry, 
-         min_n == best_simpson_class$min_n, 
-         .metric == "roc_auc") %>%
-  left_join(fold_city_lookup,by = "id") %>%
+city_simpson <- simpson_byfold %>%
+  left_join(fold_city_lookup, by = "id") %>%
   select(city, .estimate) %>%
   rename(simpson_auc = .estimate)
 
-city_auc <- city_richness %>%full_join(city_simpson, by = "city")
+# Combine city-level results
+city_auc <- full_join(city_richness, city_simpson, by = "city")
 
+# Add overall ROC AUC
 overall_auc <- tibble(city = "Overall", 
                       richness_auc = overall_richness, 
                       simpson_auc = overall_simpson)
@@ -248,7 +225,7 @@ simpson_na_folds <- prediction_rate_simpson_byfold %>%
 richness_na_folds
 simpson_na_folds
 ```
-As seen before, there is more variability in the Simpson scores compared to the richness scores when looking at individual cities. This suggests that the richness model extrapolates to other cities better than the simpson model. 
+There is lower inter-city variation in the richness model compared to the Simpson model. Lower variation could indicate more consistent performance across held-out cities, however it is hard to compare species richness and Simpson diversity directly since they measure different aspects of biodiversity, on different scales.
 
 ### Final Model
 This is fit on the entire dataset.
@@ -305,7 +282,7 @@ tibble::tibble(
   knitr::kable(caption = "Random forest classification performance: 
                success rate vs. prediction rate AUC")
 ```
-For the richness model, there is a small gap between the sample AUC and cross-city AUC (0.984 to 0.951) suggesting that the model is capturing real patterns, not sure memorizing city specific patterns. On the other hand, the Simpson model has a larger gap (0.933 to 0.710). This suggests that the model fits the training data well, but struggles to generalise to other, unseen, cities. This is backed up by the previous, city level breakdown of AUC scores where there was more variablity in the Simpson scores. 
+For the richness model, there is a relatively small decrease from the sample AUC (0.984) to the cross-city AUC (0.951), indicating that predictive performance remains similar when the model is applied to unseen cities. In the Simpson model, there is a larger decrease, 0.933 to 0.710, suggesting less consistent performance across cities. 
 
 ### Variable Importance
 ```{r}
@@ -335,7 +312,6 @@ simpson_fit_class %>%
   labs(title = "Variable importance: Simpson diversity classification",
        x = NULL, y = "Permutation importance")
 ```
-Once again, `n_days` is the dominant predictor variable for both models, likely representing sampling effort over true biodiversity. In the richness model, `weighted_temp`, `pct_greenspace`, and `avg_area_ha` show secondary importance. `weighted_temp` and `pct_greenspace` were also relevant in the regression random forest and significant in the negative binomial regression. In the Simpson model, `pct_greenspace`, `avg_imperv`, `dist_to_river`, and `avg_area_ha` show secondary importance. 
-
-To conclude, the richness classifier model is strong and demonstrates transferability between cities. There is evidence that the predictors capture real ecological signal. Whereas the Simpson model is weaker with the training data fitting well but it struggles to generalise to new cities. 
-To attempt to look closer at the true ecological drivers, as opposed to sampling effort, these models are rerun in the next notebook without the predictor `n_days`. 
+Once again, `n_days` is the dominant predictor variable for both models. In the richness model, `weighted_temp`, `pct_greenspace`, and `avg_area_ha` show secondary importance. `weighted_temp` and `pct_greenspace` were also relevant in the regression random forest and significant in the negative binomial regression. In the Simpson model, `pct_greenspace`, `avg_imperv`, `dist_to_river`, and `avg_area_ha` show secondary importance. 
+ 
+The following notebook reruns these models without the predictor `n_days` to examine the relative importance of ecological drivers look after removing the dominant predictor sampling effort. It is a deliberate modelling decision expected to reduce model predictive performance. Removing `n_days` allows the relative importance of environmental predictors to become more apparent but doesn't necessarily provide a more accurate view of their ecological effects. 
