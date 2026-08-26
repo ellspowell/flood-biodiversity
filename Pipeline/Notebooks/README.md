@@ -78,7 +78,7 @@ This installs the R package versions recorded for the project. Individual notebo
 
 ---
 
-## [01 — Pipeline](/RMDs/01_Pipeline.Rmd)
+## [01 — Pipeline](RMDs/01_Pipeline.Rmd)
 
 This notebook describes the structure of the `targets` pipeline used to construct the analysis datasets. It covers the main stages of the pipeline, functions, dependencies, and useful commands for inspecting and running the workflow.
 
