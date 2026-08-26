@@ -58,17 +58,9 @@ df$simpson_adj <- (df$simpson * (n - 1) + 0.5) / n
 predictors <- c("dtm_elev", "avg_imperv", "rofsw_risk", "rofrs_risk",
                  "avg_area_ha", "treeht", "weighted_precip", "weighted_temp",
                  "dist_to_river", "pct_greenspace")
-
-#Folds & fold city names
-folds <- group_vfold_cv(df, group = city)
-
-fold_city_lookup <- folds %>%
-  mutate(city = purrr::map_chr(
-    splits,~ as.character(unique(assessment(.x)$city)))) %>%
-  select(id, city)
 ```
 
-### Model Setup : Richness and Simpson
+### Classification and Fold Setup
 ```{r}
 #Classification setup
 df <- df %>%
@@ -80,6 +72,17 @@ df <- df %>%
       if_else(simpson_adj >= median(simpson_adj, na.rm = TRUE), "high", "low"), 
       levels = c("low", "high")))
 
+#Folds & fold city names
+folds <- group_vfold_cv(df, group = city)
+
+fold_city_lookup <- folds %>%
+  mutate(city = purrr::map_chr(
+    splits,~ as.character(unique(assessment(.x)$city)))) %>%
+  select(id, city)
+```
+
+### Model Specification and Recipe
+```{r}
 #RF Specification
 rf_spec_class <- rand_forest(
   mtry  = tune(),
