@@ -144,10 +144,10 @@ Model development is carried out using the `tidymodels` recipe and workflow fram
 Hyperparameter tuning and model evaluation include:
 
 - Root mean squared error (RMSE)
-- R^2^
+- $R^{2}$
 - Mean absolute error (MAE)
 - City-based cross-validation
-- Out-of-bag R^2^ for the final models
+- Out-of-bag $R^{2}$ for the final models
 
 Variable importance is also examined.
 
