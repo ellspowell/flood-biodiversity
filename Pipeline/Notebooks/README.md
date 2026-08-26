@@ -299,7 +299,7 @@ Pipeline/
 
 The two `Data/` directories have different purposes:
 
-- `Pipeline/Data/` contains the source and intermediate data required to rebuild the full geospatial pipeline.
+- `Pipeline/Data/` contains the source and intermediate data required to rebuild the full pipeline.
 - `Pipeline/Notebooks/RMDs/Data/` contains the smaller analysis-ready datasets and saved model objects required to reproduce the notebook analyses. 
 
 For information on obtaining the original source datasets and running the complete data-processing pipeline, see the [Pipeline README](../README.md).
