@@ -42,7 +42,8 @@ Flood risk is represented using DEFRAs RoFRS and RoFSW data. These flood-risk va
 - Compare the models in their ability to predict biodiversity, performance, and interpretation.
 
 ## Project Flowchart
-<img width="3780" height="2076" alt="Project Workflow" src="https://github.com/user-attachments/assets/8a95ef30-72c6-4ae2-ad84-9ef10862dda7" />
+Flow chart showing the stages of this project.
+<img width="3780" height="2076" alt="Project Workflow" src="https://github.com/user-attachments/assets/1a93ae91-2d12-4a21-bbad-2fadeeba5951" />
 
 ## Data Sources
 All data used in this project is freely available online for use within its licensing terms. The [Data Sources](Data_Sources.md) file contains a list of all sources.
