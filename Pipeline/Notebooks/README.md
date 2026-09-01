@@ -148,8 +148,7 @@ Hyperparameter tuning and model evaluation include:
 - Mean absolute error (MAE)
 - City-based cross-validation
 - Out-of-bag $R^{2}$ for the final models
-
-Variable importance is also examined.
+- Permutation importance 
 
 The notebook additionally investigates `n_days` as a proxy for biodiversity sampling effort by examining its correlation and variation between cities. The models are subsequently refitted without `n_days` to investigate how its removal affects model performance and the importance of environmental predictors.
 
@@ -179,7 +178,7 @@ Data/grid_model.gpkg
 
 This notebook extends the Random Forest classification analysis from Notebook 05 by removing `n_days` from the predictor set.
 
-`n_days` is used as a proxy for biodiversity sampling effort. Removing it allows better analysis of the contribution of environmental predictors on biodiversity.
+`n_days` is used as a proxy for biodiversity sampling effort. Removing it allows a view of the contribution of environmental predictors on biodiversity.
 
 ### Required data
 
@@ -197,8 +196,7 @@ Models are evaluated using:
 
 - Mean ROC AUC
 - Success-rate versus prediction-rate AUC
-
-Variable importance is also examined.
+- Gain importance
 
 ### Required data
 
@@ -210,7 +208,7 @@ Data/grid_model.gpkg
 
 ## 08 — [SHapley Additive exPlanations (SHAP)](RMDs/08_SHapley_Additive_exPlanations.Rmd)
 
-This notebook uses SHAP values to interpret the species richness Random Forest and XGBoost models fitted without `n_days`. The Random Forest model is interpreted using `kernelshap`, while the XGBoost model uses TreeSHAP. Both analyses explain the predicted probability of high species richness.
+This notebook uses SHAP values to interpret the species richness Random Forest and XGBoost models fitted without `n_days`. The Random Forest model is interpreted using `kernelshap`, while the XGBoost model uses TreeSHAP. Both analyses are calibrated to show predicted high species richness.
 
 Model interpretation includes:
 
