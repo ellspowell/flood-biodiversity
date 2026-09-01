@@ -67,7 +67,7 @@ How to access and run the pipeline, as well as notes on its generation and outpu
 ### 02 - [Exploratory Data Analysis](02_Exploratory_Data_Analysis.pdf)
 Exploratory analysis of the spatial grid, predictor variables, data distributions, and biodiversity indices.
 ### 03 - [Diversity Indices](03_Diversity_Indices.pdf)
-Generation and comparison of two different diversity indices: Richness and Simpson. Baseline models created using negative binomial distribution for richness, and beta regression with response transformation for Simpson. 
+Generation and comparison of two different diversity indices: Richness and Simpson. Baseline models created using negative binomial distribution for richness, and beta regression with transformation for Simpson. 
 ### 04 - [Random Forest Regression](04_Random_Forest_Regression.pdf)
 Regression Random Forest models using species richness and Simpson diversity.
 ### 05 - [Random Forest Classification](05_Random_Forest_Classification.pdf)
