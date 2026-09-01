@@ -231,6 +231,6 @@ The repository contains three components intended to support reproducibility:
 
 - `renv.lock` records the R package environment used for the project.
 - `_targets.R` and `R/` contain the complete computational workflow used to construct the analysis datasets.
-- Analysis read grids preseve the datasets used for statistical modellling without requiring users to repeat the large source-data downloads and computationally expensive geospatial processing.
+- The pipeline preseves the datasets used for statistical modellling without requiring users to repeat the large source-data downloads and computationally expensive geospatial processing.
 
 Original datasets are not stored in this GitHub repository due to their size and, where applicable, external licensing and redistribution requirements. 
